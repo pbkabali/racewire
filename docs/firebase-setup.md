@@ -207,12 +207,30 @@ and cannot carry comments:
 
 ---
 
-## 5. Service account
+## 5. Service accounts
 
-Needed by CI, and by step 6 — so create it before trying to grant yourself
-admin.
+You need **two different** service accounts, and the consoles present them in
+two different places, which is easy to conflate:
 
-Per project, in the [Google Cloud console](https://console.cloud.google.com/iam-admin/serviceaccounts):
+| Account | Where | Used for |
+| --- | --- | --- |
+| `firebase-adminsdk-…` (already exists) | Firebase console → Project settings → **Service accounts** | step 6 — calling Auth/Firestore as an admin |
+| `github-deployer` (you create it) | Google Cloud console → **IAM & Admin → Service Accounts** | step 7 — CI deploys |
+
+The Admin SDK account **cannot deploy** — it has no Hosting, Cloud Functions or
+Artifact Registry permissions. The deployer account is a separate, revocable
+identity, which is also why it is worth keeping them apart.
+
+### 5a. Admin SDK key — for step 6
+
+Firebase console → gear → **Project settings** → **Service accounts** tab →
+**Firebase Admin SDK** → **Generate new private key**. A JSON downloads.
+
+### 5b. Deployer account — for step 7
+
+Google Cloud console → [IAM & Admin → Service Accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
+(the **"N service accounts"** link on the Firebase page above goes straight
+there):
 
 1. **Create service account**, name it `github-deployer`.
 2. Grant these roles:
@@ -220,13 +238,20 @@ Per project, in the [Google Cloud console](https://console.cloud.google.com/iam-
    - `Cloud Functions Admin` — deploy functions
    - `Service Account User` — lets it act as the functions runtime account
    - `Artifact Registry Writer` — functions v2 builds push a container image
-   - `Firebase Authentication Admin` — required by step 6 to set custom claims
 3. Keys → **Add key** → JSON → download.
 
-That JSON is a real credential. It is matched by the `*serviceAccount*.json` and
-`*-firebase-adminsdk-*.json` patterns in `.gitignore`, but do not keep it in the
-repo directory at all. Put it somewhere outside the project, e.g.
-`~/.secrets/racewire-staging-sa.json`, and delete it once it is in GitHub.
+Repeat both for the production project when you create it.
+
+### Handling the keys
+
+These JSON files are real credentials — anyone holding one has full access to
+that project. They match the `*serviceAccount*.json` and
+`*-firebase-adminsdk-*.json` patterns in `.gitignore`, but do not keep them in
+the repo directory at all. Put them somewhere like `~/.secrets/`, and delete the
+deployer key once it is pasted into GitHub.
+
+If one leaks, revoke it: Cloud console → the service account → Keys → delete the
+key. That is instant and does not affect the project otherwise.
 
 ---
 
@@ -237,11 +262,11 @@ deployed `grantAdmin` callable requires you to already be an admin, so the first
 one has to be set out of band.
 
 1. Console → **Authentication** → Users → **Add user** (your email + a password).
-2. Grant the claim:
+2. Grant the claim, using the **Admin SDK** key from 5a:
 
 ```bash
 cd functions
-GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-staging-sa.json \
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-staging-adminsdk.json \
   node scripts/grant-admin.mjs you@example.com
 ```
 
@@ -268,7 +293,7 @@ For **each** environment, add:
 
 | Name | Value |
 | --- | --- |
-| `FIREBASE_SERVICE_ACCOUNT` | the whole JSON file contents |
+| `FIREBASE_SERVICE_ACCOUNT` | the entire contents of the **`github-deployer`** key from 5b — not the Admin SDK key, which cannot deploy |
 
 **Variables** (public by design — they ship in the bundle, so they are variables
 rather than secrets, which keeps them readable and diffable).
