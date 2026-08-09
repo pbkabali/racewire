@@ -35,18 +35,18 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-track-black px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-bg px-4">
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-sm space-y-4 rounded-lg border border-asphalt-light bg-asphalt p-6"
+        className="w-full max-w-sm space-y-4 rounded-lg border border-edge bg-surface p-6"
       >
         <div>
-          <h1 className="text-lg font-bold text-zinc-100">Organiser sign in</h1>
-          <p className="mt-1 text-sm text-zinc-500">Admin access only.</p>
+          <h1 className="text-lg font-bold text-fg">Organiser sign in</h1>
+          <p className="mt-1 text-sm text-fg-subtle">Admin access only.</p>
         </div>
 
         <label className="block">
-          <span className="text-xs font-semibold tracking-wide text-zinc-400 uppercase">
+          <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
             Email
           </span>
           <input
@@ -55,12 +55,12 @@ export function LoginPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-md border border-asphalt-light bg-track-black px-3 py-2 text-zinc-100"
+            className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg"
           />
         </label>
 
         <label className="block">
-          <span className="text-xs font-semibold tracking-wide text-zinc-400 uppercase">
+          <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
             Password
           </span>
           <input
@@ -69,12 +69,12 @@ export function LoginPage() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-md border border-asphalt-light bg-track-black px-3 py-2 text-zinc-100"
+            className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg"
           />
         </label>
 
         {error && (
-          <p role="alert" className="text-sm text-flag-red">
+          <p role="alert" className="text-sm text-danger-text">
             {error}
           </p>
         )}
@@ -82,7 +82,7 @@ export function LoginPage() {
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-md bg-flag-yellow py-2 font-bold text-track-black disabled:opacity-60"
+          className="w-full rounded-md bg-accent py-2 font-bold text-accent-fg disabled:opacity-60"
         >
           {busy ? 'Signing in…' : 'Sign in'}
         </button>

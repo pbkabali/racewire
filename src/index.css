@@ -1,38 +1,42 @@
 @import 'tailwindcss';
+@import './styles/palette.css';
+@import './styles/theme.css';
 
 /*
- * Racewire palette: black base, yellow as the primary accent, red reserved for
- * urgency. Yellow carries most of the emphasis because it holds up in direct
- * sunlight on a phone screen at a racecourse; red is kept for genuine alerts
- * (red flag, race stopped) so it does not lose meaning through overuse.
+ * `inline` matters here: it makes utilities emit `var(--surface)` directly
+ * instead of copying the value at build time, which is what lets the theme
+ * swap at runtime when data-theme changes.
  */
-@theme {
-  --color-track-black: #0b0b0c;
-  --color-asphalt: #17181b;
-  --color-asphalt-light: #232529;
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-edge: var(--edge);
 
-  --color-flag-yellow: #ffd400;
-  --color-flag-yellow-dim: #b39400;
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
 
-  --color-flag-red: #e10600;
-  --color-flag-red-dim: #8f0400;
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-text: var(--accent-text);
+
+  --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-text: var(--danger-text);
 
   --font-display: 'Archivo', ui-sans-serif, system-ui, sans-serif;
 }
 
-/*
- * Base layer. The app is dark by design rather than theme-switchable, so the
- * colours are stated once here instead of behind a prefers-color-scheme query.
- */
 @layer base {
   html {
-    background-color: var(--color-track-black);
+    background-color: var(--bg);
     /* Stop iOS from inflating text in landscape. */
     -webkit-text-size-adjust: 100%;
   }
 
   body {
-    @apply bg-track-black text-zinc-100 antialiased;
+    @apply bg-bg text-fg antialiased;
     /* Respect notches and the home indicator on phones. */
     padding: env(safe-area-inset-top) env(safe-area-inset-right)
       env(safe-area-inset-bottom) env(safe-area-inset-left);
@@ -40,7 +44,7 @@
 
   /* Visible focus for keyboard users without ringing every mouse click. */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-flag-yellow;
+    @apply outline-2 outline-offset-2 outline-accent;
   }
 }
 

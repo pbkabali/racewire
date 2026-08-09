@@ -13,7 +13,7 @@ export function OfflineBanner() {
   return (
     <div
       role="status"
-      className="sticky top-0 z-40 bg-flag-yellow px-4 py-2 text-center text-sm font-semibold text-track-black"
+      className="sticky top-0 z-40 bg-accent px-4 py-2 text-center text-sm font-semibold text-accent-fg"
     >
       Offline — showing saved notices. New posts will send when you reconnect.
     </div>

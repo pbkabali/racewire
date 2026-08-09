@@ -15,8 +15,8 @@ export function ProtectedRoute() {
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-track-black">
-        <span className="animate-pulse text-sm tracking-widest text-flag-yellow uppercase">
+      <div className="flex min-h-dvh items-center justify-center bg-bg">
+        <span className="animate-pulse text-sm tracking-widest text-accent-text uppercase">
           Checking access
         </span>
       </div>
@@ -30,9 +30,9 @@ export function ProtectedRoute() {
 
   if (!admin) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-track-black px-6 text-center">
-        <h1 className="text-xl font-bold text-flag-red">Not authorised</h1>
-        <p className="text-sm text-zinc-400">
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-bg px-6 text-center">
+        <h1 className="text-xl font-bold text-danger-text">Not authorised</h1>
+        <p className="text-sm text-fg-muted">
           This account is signed in but has no admin access.
         </p>
       </div>

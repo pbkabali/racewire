@@ -42,9 +42,9 @@ export const router = createBrowserRouter([
   {
     path: '*',
     element: (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-2 bg-track-black">
-        <p className="text-3xl font-bold text-flag-yellow">404</p>
-        <p className="text-sm text-zinc-400">That page does not exist.</p>
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-2 bg-bg">
+        <p className="text-3xl font-bold text-accent-text">404</p>
+        <p className="text-sm text-fg-muted">That page does not exist.</p>
       </div>
     ),
   },

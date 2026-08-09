@@ -11,8 +11,9 @@ can post updates trackside even with no connection.
 | Layer | Choice |
 | --- | --- |
 | App | React 19 + TypeScript, Vite 8 (SPA) |
-| Styling | Tailwind CSS v4 (CSS-first `@theme`) |
+| Styling | Tailwind CSS v4, semantic tokens over a swappable palette |
 | Data | Firestore with persistent multi-tab offline cache |
+| Files | Firebase Storage, pdf.js for in-app PDF viewing |
 | Auth | Firebase Auth, admin gated by a custom claim |
 | Push | Firebase Cloud Messaging |
 | Backend | Cloud Functions (Node 22, v2 API) |
@@ -37,6 +38,7 @@ that is deliberate, not a bug.
 | `npm run build` | Typecheck (`tsc -b`) then production build |
 | `npm run preview` | Serve the production build locally |
 | `npm run lint` | oxlint |
+| `npm run check:contrast` | WCAG audit of both themes — run after any colour change |
 
 ## Layout
 
@@ -78,8 +80,39 @@ is only for usability; `firestore.rules` enforces the same claim server-side.
 `syncSheetNow` is a callable for on-demand refresh. Firestore stays the single
 source the app reads, which is what preserves offline and realtime behaviour.
 
+**Files.** Images and PDFs attach to a notice, upload with a progress bar, and
+open in-app — images in a lightbox, PDFs rendered by pdf.js. pdf.js rather than
+an `<iframe>` because iOS Safari and Chrome on Android routinely refuse to
+display a PDF inline and force a download instead, which would defeat the point.
+The viewer chunk is lazy-loaded, so only people who open a PDF pay for it.
+Attachments viewed once are cached by the service worker (50 files / 30 days),
+since Firestore's persistence covers documents only and would otherwise leave a
+course map unreachable exactly when the app is still working offline.
+
+Uploads are the one thing that genuinely needs a connection — Storage has no
+offline write queue, unlike Firestore. The uploader says so when offline.
+
 **Theme.** Black ground, yellow as primary accent (readable in direct sunlight),
-red reserved for genuine urgency so it keeps its meaning.
+red reserved for genuine urgency so it keeps its meaning. Light, dark and system,
+with the choice persisted and applied before first paint by a small inline script
+in `index.html` — React runs after the document paints, so it cannot prevent a
+flash of the wrong theme on its own.
+
+### Rebranding
+
+Edit **`src/styles/palette.css`** and nothing else. It holds every raw colour:
+the accent, the danger hue, and one neutral ramp that light and dark read from
+opposite ends. Components reference semantic roles (`bg-surface`, `text-fg`,
+`text-accent-text`, `bg-danger`), never raw values, so no component changes when
+the brand does. `src/styles/theme.css` maps raw values onto roles per theme —
+touch it only to change how a role behaves, not to change a colour.
+
+Then run `npm run check:contrast`. Two traps it exists to catch: a colour that
+passes against the page but fails against the slightly darker card surface, and
+one that reads fine in dark mode but not light. Both were real during this
+build. Note `--brand-accent-deep`, a darker cut of the accent used for
+accent-coloured *text* in light mode, because full-strength yellow on white
+fails AA badly.
 
 ## Firebase setup
 
@@ -89,7 +122,7 @@ Not yet connected to a project. When you are ready:
 npm i -g firebase-tools
 firebase login
 firebase use --add                       # select or create the project
-firebase deploy --only firestore:rules,firestore:indexes
+firebase deploy --only firestore:rules,firestore:indexes,storage
 ```
 
 The `notices` list query sorts on `pinned` then `publishedAt`, so the composite
@@ -137,7 +170,11 @@ Expected header row: `id, name, category, startsAt, status`.
 
 - Not connected to a Firebase project yet; `.env.local` must be filled in.
 - WhatsApp and SMS adapters are written but untested against live accounts.
-- The entry bundle is ~914 KiB raw (~250 KiB gzipped), dominated by the Firebase
-  SDK. Acceptable because the service worker precaches it once, but worth
+- The entry bundle is ~287 KiB gzipped, dominated by the Firebase SDK. The pdf.js
+  viewer is a further ~123 KiB gzipped but loads only when a PDF is opened.
+  Acceptable because the service worker precaches the entry once, but worth
   splitting further if first load on 2G matters.
+- Attachments are removed from a notice in the composer but the underlying
+  Storage object is not deleted, so abandoned uploads accumulate. A cleanup
+  function over orphaned objects is not written yet.
 - No test suite yet.

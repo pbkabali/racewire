@@ -1,12 +1,15 @@
 /// <reference lib="webworker" />
 import { initializeApp } from 'firebase/app'
 import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw'
+import { CacheableResponsePlugin } from 'workbox-cacheable-response'
+import { ExpirationPlugin } from 'workbox-expiration'
 import {
   cleanupOutdatedCaches,
   createHandlerBoundToURL,
   precacheAndRoute,
 } from 'workbox-precaching'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
+import { CacheFirst } from 'workbox-strategies'
 
 import { firebaseConfig } from './lib/firebase/config'
 
@@ -30,6 +33,35 @@ cleanupOutdatedCaches()
 registerRoute(
   new NavigationRoute(createHandlerBoundToURL('index.html'), {
     denylist: [/^\/__/, /\/[^/?]+\.[^/]+$/],
+  }),
+)
+
+/*
+ * Attachments viewed once stay available offline.
+ *
+ * Firestore's persistence covers documents only -- it does nothing for Storage
+ * downloads, so a course map would otherwise be unreachable exactly when the
+ * app is still working from cache. CacheFirst because attachments are written
+ * with an immutable Cache-Control and never change under a given URL.
+ *
+ * Bounded on purpose: 50 files / 30 days, and purgeOnQuotaError so the browser
+ * evicting our quota degrades to a re-fetch rather than a broken cache.
+ */
+registerRoute(
+  ({ url }) =>
+    url.hostname === 'firebasestorage.googleapis.com' ||
+    url.hostname.endsWith('.firebasestorage.app'),
+  new CacheFirst({
+    cacheName: 'racewire-attachments',
+    plugins: [
+      // Storage returns opaque redirects for some requests; cache only real hits.
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({
+        maxEntries: 50,
+        maxAgeSeconds: 30 * 24 * 60 * 60,
+        purgeOnQuotaError: true,
+      }),
+    ],
   }),
 )
 

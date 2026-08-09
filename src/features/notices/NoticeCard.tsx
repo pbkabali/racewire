@@ -1,19 +1,20 @@
+import { AttachmentList } from '../../components/attachments/AttachmentList'
 import type { Notice, NoticeSeverity } from './types'
 
 const severityStyles: Record<NoticeSeverity, { border: string; chip: string; label: string }> = {
   info: {
-    border: 'border-l-zinc-600',
-    chip: 'bg-zinc-700 text-zinc-200',
+    border: 'border-l-edge',
+    chip: 'bg-surface-raised text-fg',
     label: 'Info',
   },
   warning: {
-    border: 'border-l-flag-yellow',
-    chip: 'bg-flag-yellow text-track-black',
+    border: 'border-l-accent',
+    chip: 'bg-accent text-accent-fg',
     label: 'Warning',
   },
   urgent: {
-    border: 'border-l-flag-red',
-    chip: 'bg-flag-red text-white',
+    border: 'border-l-danger',
+    chip: 'bg-danger text-danger-fg',
     label: 'Urgent',
   },
 }
@@ -23,7 +24,7 @@ export function NoticeCard({ notice }: { notice: Notice }) {
 
   return (
     <article
-      className={`rounded-lg border border-asphalt-light border-l-4 bg-asphalt p-4 ${style.border}`}
+      className={`rounded-lg border border-edge border-l-4 bg-surface p-4 ${style.border}`}
     >
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span
@@ -32,17 +33,19 @@ export function NoticeCard({ notice }: { notice: Notice }) {
           {style.label}
         </span>
         {notice.pinned && (
-          <span className="rounded border border-flag-yellow px-2 py-0.5 text-xs font-semibold text-flag-yellow">
+          <span className="rounded border border-accent px-2 py-0.5 text-xs font-semibold text-accent-text">
             Pinned
           </span>
         )}
-        <time className="ml-auto text-xs text-zinc-500">{formatWhen(notice)}</time>
+        <time className="ml-auto text-xs text-fg-subtle">{formatWhen(notice)}</time>
       </div>
 
-      <h2 className="text-base font-bold text-zinc-100">{notice.title}</h2>
-      <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-zinc-300">
+      <h2 className="text-base font-bold text-fg">{notice.title}</h2>
+      <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-fg">
         {notice.body}
       </p>
+
+      <AttachmentList attachments={notice.attachments ?? []} />
     </article>
   )
 }

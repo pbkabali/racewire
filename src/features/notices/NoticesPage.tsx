@@ -10,7 +10,7 @@ export function NoticesPage() {
 
   if (error) {
     return (
-      <p className="rounded-lg border border-flag-red-dim bg-asphalt p-4 text-sm text-flag-red">
+      <p className="rounded-lg border border-danger bg-surface p-4 text-sm text-danger-text">
         Could not load notices: {error.message}
       </p>
     )
@@ -19,12 +19,12 @@ export function NoticesPage() {
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between">
-        <h1 className="text-xl font-bold tracking-tight text-zinc-100">Notices</h1>
-        {fromCache && <span className="text-xs text-zinc-500">saved copy</span>}
+        <h1 className="text-xl font-bold tracking-tight text-fg">Notices</h1>
+        {fromCache && <span className="text-xs text-fg-subtle">saved copy</span>}
       </div>
 
       {notices.length === 0 ? (
-        <p className="rounded-lg border border-asphalt-light bg-asphalt p-6 text-center text-sm text-zinc-400">
+        <p className="rounded-lg border border-edge bg-surface p-6 text-center text-sm text-fg-muted">
           No notices yet. Anything the organisers post will appear here.
         </p>
       ) : (
@@ -38,7 +38,7 @@ function SkeletonList() {
   return (
     <div className="space-y-3" aria-busy="true" aria-label="Loading notices">
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-28 animate-pulse rounded-lg bg-asphalt" />
+        <div key={i} className="h-28 animate-pulse rounded-lg bg-surface" />
       ))}
     </div>
   )

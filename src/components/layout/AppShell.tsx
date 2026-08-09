@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 
 import { OfflineBanner } from '../OfflineBanner'
+import { ThemeToggle } from '../ThemeToggle'
 
 const navItems = [
   { to: '/', label: 'Notices', end: true },
@@ -17,7 +18,7 @@ export function AppShell() {
     <div className="flex min-h-dvh flex-col overscroll-none-y">
       <OfflineBanner />
 
-      <header className="hidden border-b border-asphalt-light bg-asphalt sm:block">
+      <header className="hidden border-b border-edge bg-surface sm:block">
         <div className="mx-auto flex max-w-5xl items-center gap-6 px-6 py-4">
           <Brand />
           <nav className="flex gap-1">
@@ -29,8 +30,8 @@ export function AppShell() {
                 className={({ isActive }) =>
                   `rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-flag-yellow text-track-black'
-                      : 'text-zinc-400 hover:text-zinc-100'
+                      ? 'bg-accent text-accent-fg'
+                      : 'text-fg-muted hover:text-fg'
                   }`
                 }
               >
@@ -38,11 +39,17 @@ export function AppShell() {
               </NavLink>
             ))}
           </nav>
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
-      <div className="border-b border-asphalt-light bg-asphalt px-4 py-3 sm:hidden">
+      <div className="flex items-center border-b border-edge bg-surface px-4 py-3 sm:hidden">
         <Brand />
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
       </div>
 
       {/* pb-20 clears the fixed mobile tab bar. */}
@@ -50,7 +57,7 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-asphalt-light bg-asphalt pb-[env(safe-area-inset-bottom)] sm:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-edge bg-surface pb-[env(safe-area-inset-bottom)] sm:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.to}
@@ -58,7 +65,7 @@ export function AppShell() {
             end={item.end}
             className={({ isActive }) =>
               `py-3 text-center text-xs font-semibold tracking-wide uppercase transition-colors ${
-                isActive ? 'text-flag-yellow' : 'text-zinc-500'
+                isActive ? 'text-accent-text' : 'text-fg-subtle'
               }`
             }
           >
@@ -73,9 +80,9 @@ export function AppShell() {
 function Brand() {
   return (
     <span className="flex items-center gap-2 text-lg font-bold tracking-tight">
-      <span className="h-5 w-1.5 rounded-sm bg-flag-red" aria-hidden />
-      <span className="text-zinc-100">
-        race<span className="text-flag-yellow">wire</span>
+      <span className="h-5 w-1.5 rounded-sm bg-danger" aria-hidden />
+      <span className="text-fg">
+        race<span className="text-accent-text">wire</span>
       </span>
     </span>
   )
