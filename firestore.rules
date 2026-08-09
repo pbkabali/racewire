@@ -1,0 +1,56 @@
+rules_version = '2';
+
+// Racewire access model:
+//   - Notices and races are public to read. Spectators are never asked to sign in.
+//   - Only admins write, and only through the `admin` custom claim, which the
+//     client cannot forge (unlike a Firestore-document role lookup that the
+//     client could race). Grant it with the `grantAdmin` callable in functions/.
+//   - Subscribers are write-only from the client so device tokens and phone
+//     numbers cannot be enumerated by other visitors.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function hasRequiredNoticeFields() {
+      let d = request.resource.data;
+      return d.title is string && d.title.size() > 0 && d.title.size() <= 120
+        && d.body is string && d.body.size() <= 5000
+        && d.severity in ['info', 'warning', 'urgent']
+        && d.pinned is bool;
+    }
+
+    match /notices/{noticeId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && hasRequiredNoticeFields();
+      allow delete: if isAdmin();
+    }
+
+    match /races/{raceId} {
+      allow read: if true;
+      // Written by the Sheets sync function, which uses the Admin SDK and
+      // bypasses these rules. Admins may still correct a row by hand.
+      allow write: if isAdmin();
+    }
+
+    match /subscribers/{token} {
+      // A device may register itself but may not read the subscriber list.
+      allow read: if isAdmin();
+      allow create, update: if request.resource.data.keys().hasOnly(['token', 'channel', 'updatedAt', 'phone'])
+        && request.resource.data.channel in ['push', 'sms', 'whatsapp'];
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{uid} {
+      // Reference list for humans; the claim is the real gate.
+      allow read, write: if isAdmin();
+    }
+
+    // Anything not matched above is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
