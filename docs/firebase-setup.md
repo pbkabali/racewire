@@ -300,7 +300,13 @@ there):
    - `Cloud Functions Admin` — deploy functions
    - `Service Account User` — lets it act as the functions runtime account
    - `Artifact Registry Writer` — functions v2 builds push a container image
+   - `Cloud Scheduler Admin` — required by `syncSheetScheduled`, which is an
+     `onSchedule` function and so owns a Cloud Scheduler job
 3. Keys → **Add key** → JSON → download.
+
+Miss one and the deploy fails partway: rules, indexes and hosting land, then
+functions error. Firebase deploys targets in sequence, so a partial success is
+normal for a permissions problem rather than an all-or-nothing rollback.
 
 Repeat both for the production project when you create it.
 
@@ -513,7 +519,13 @@ while a Cloud project clearly exists, this is the cause rather than a quota
 limit.
 
 **`HTTP Error: 403, Permission denied`** — the service account is missing a
-role from step 6. Functions v2 in particular needs Artifact Registry Writer.
+role from step 5b. Functions v2 in particular needs Artifact Registry Writer.
+
+**`lacks IAM permission "cloudscheduler.jobs.update"`** — `github-deployer` is
+missing `Cloud Scheduler Admin`. `syncSheetScheduled` is an `onSchedule`
+function, so deploying it creates and updates a Cloud Scheduler job, which
+Cloud Functions Admin does not cover. Add the role in Cloud console → IAM, then
+re-run the workflow; no code change is needed.
 
 **`Cloud Functions deployment requires the Cloud Build API to be enabled. The
 current credentials do not have permission to enable APIs`** — expected on the
