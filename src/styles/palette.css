@@ -1,0 +1,45 @@
+/*
+ * ============================================================
+ *  THE ONLY FILE YOU NEED TO EDIT TO REBRAND RACEWIRE
+ * ============================================================
+ *
+ * Raw colour values live here and nowhere else. Components never reference
+ * these directly -- they use the semantic roles in theme.css (surface, fg,
+ * accent, danger), which are derived from what you set below. Change a value
+ * here and both light and dark modes follow, with no component edits.
+ *
+ * Current identity: black ground, yellow accent, red for urgency.
+ */
+
+:root {
+  /* ---- Brand hues ---------------------------------------------------- */
+
+  /* Primary accent. Used for emphasis, active nav, primary buttons. */
+  --brand-accent: #ffd400;
+  /* Darker cut of the accent, for accent-coloured TEXT on light backgrounds.
+     Pure yellow on white fails contrast badly, so light mode reaches for this.
+     Tuned to clear WCAG AA (4.5:1) against the CARD surface, not just the page
+     -- the page is the easier test and passing only that leaves cards failing. */
+  --brand-accent-deep: #856800;
+
+  /* Urgency. Reserved for genuine alerts so it keeps its meaning. */
+  --brand-danger: #e10600;
+  --brand-danger-deep: #b00500;
+
+  /* ---- Neutral ramp -------------------------------------------------- */
+  /* 0 is the darkest ink, 1000 the lightest paper. Light and dark modes read
+     this same ramp from opposite ends, which is why one ramp serves both. */
+
+  --neutral-0: #0b0b0c;
+  --neutral-50: #17181b;
+  --neutral-100: #232529;
+  --neutral-200: #34373d;
+  --neutral-300: #4b4f57;
+  --neutral-400: #71757e;
+  --neutral-500: #9598a1;
+  --neutral-600: #b8bac1;
+  --neutral-700: #d4d6da;
+  --neutral-800: #e7e8ea;
+  --neutral-900: #f4f4f5;
+  --neutral-1000: #ffffff;
+}

@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// Attachments on the noticeboard.
+//   - Public read: spectators must see a course map or a red-flag photo without
+//     signing in, matching the read model in firestore.rules.
+//   - Admin-only write, with type and size enforced HERE as well as in the
+//     client. The client checks are for feedback; these are the real limit,
+//     since anyone can call the Storage API directly.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function isAllowedType() {
+      return request.resource.contentType.matches('image/(jpeg|png|webp|gif)')
+        || request.resource.contentType == 'application/pdf';
+    }
+
+    function isUnderSizeLimit() {
+      return request.resource.size <= 15 * 1024 * 1024;
+    }
+
+    match /notices/{fileName} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isAllowedType() && isUnderSizeLimit();
+      allow delete: if isAdmin();
+    }
+
+    // Everything outside /notices is closed.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
