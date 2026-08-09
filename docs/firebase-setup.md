@@ -29,7 +29,7 @@ the blast radius.
 **Project IDs are permanent and globally unique.** Two consequences worth
 understanding before you click anything:
 
-- The console usually appends a random suffix (`racewire-prod-eda04`) rather
+- The console usually appends a random suffix (`racewire-live-eda04`) rather
   than granting the bare name. **The ID cannot be changed afterwards** — only
   the display name can. The ID is also your default hosting domain
   (`<project-id>.web.app`), so a suffixed production ID is user-visible unless
@@ -68,9 +68,9 @@ and put them in `.firebaserc`:
 ```json
 {
   "projects": {
-    "default": "racewire-staging-eda04",
-    "staging": "racewire-staging-eda04",
-    "production": "racewire-prod"
+    "default": "racewire-stg",
+    "staging": "racewire-stg",
+    "production": "racewire-live"
   }
 }
 ```
@@ -125,9 +125,9 @@ Under **SDK setup and configuration**, choose **Config**. You get this:
 ```js
 const firebaseConfig = {
   apiKey: "AIzaSyD-EXAMPLE-abc123",
-  authDomain: "racewire-staging-eda04.firebaseapp.com",
-  projectId: "racewire-staging-eda04",
-  storageBucket: "racewire-staging-eda04.firebasestorage.app",
+  authDomain: "racewire-stg.firebaseapp.com",
+  projectId: "racewire-stg",
+  storageBucket: "racewire-stg.firebasestorage.app",
   messagingSenderId: "495883225823",
   appId: "1:495883225823:web:0a1b2c3d4e5f6789"
 }
@@ -180,7 +180,7 @@ It sets variables only; the `FIREBASE_SERVICE_ACCOUNT` secret stays manual:
 
 ```bash
 gh secret set FIREBASE_SERVICE_ACCOUNT --env production \
-  < ~/.secrets/racewire-prod-deployer.json
+  < ~/.secrets/racewire-live-deployer.json
 ```
 
 ### The names
@@ -202,9 +202,9 @@ Filled in, using the values above:
 
 ```dotenv
 VITE_FIREBASE_API_KEY=AIzaSyD-EXAMPLE-abc123
-VITE_FIREBASE_AUTH_DOMAIN=racewire-staging-eda04.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=racewire-staging-eda04
-VITE_FIREBASE_STORAGE_BUCKET=racewire-staging-eda04.firebasestorage.app
+VITE_FIREBASE_AUTH_DOMAIN=racewire-stg.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=racewire-stg
+VITE_FIREBASE_STORAGE_BUCKET=racewire-stg.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=495883225823
 VITE_FIREBASE_APP_ID=1:495883225823:web:0a1b2c3d4e5f6789
 VITE_FIREBASE_VAPID_KEY=BFx...long-string-from-3b
@@ -334,7 +334,7 @@ one has to be set out of band.
 
 ```bash
 cd functions
-GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-staging-adminsdk.json \
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-stg-adminsdk.json \
   node scripts/grant-admin.mjs you@example.com
 ```
 
@@ -356,7 +356,7 @@ on the other. So when you set up production, repeat both parts against it:
 
 ```bash
 cd functions
-GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-prod-adminsdk.json \
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-live-adminsdk.json \
   node scripts/grant-admin.mjs you@example.com
 ```
 
@@ -365,7 +365,7 @@ is modified.** The script prints the project it resolved from the key before
 doing anything, so check that line matches what you intended:
 
 ```
-Project:  racewire-prod
+Project:  racewire-live
 Action:   GRANT admin to you@example.com
 ```
 
@@ -398,7 +398,7 @@ in sync with it:
 
 | Name | Value |
 | --- | --- |
-| `FIREBASE_PROJECT_ID` | the real ID, e.g. `racewire-staging-eda04` |
+| `FIREBASE_PROJECT_ID` | the real ID, e.g. `racewire-stg` |
 | `VITE_FIREBASE_API_KEY` | from step 3 |
 | `VITE_FIREBASE_AUTH_DOMAIN` | from step 3 |
 | `VITE_FIREBASE_PROJECT_ID` | from step 3 |
@@ -474,8 +474,8 @@ project, then set the `SHEET_ID` and `SHEET_RANGE` params.
 | Event | What happens |
 | --- | --- |
 | Any PR | Verify, then a Hosting-only preview URL commented on the PR, expiring in 7 days |
-| Push to `staging` | Verify, then full deploy to `racewire-staging` |
-| Push to `main` | Verify, then full deploy to `racewire-prod` |
+| Push to `staging` | Verify, then full deploy to `racewire-stg` |
+| Push to `main` | Verify, then full deploy to `racewire-live` |
 
 "Verify" is typecheck (app, service worker, node config and functions), lint,
 the two-theme contrast audit, and a production build. Deploy jobs `needs:` it,
@@ -496,6 +496,50 @@ Two deliberate choices worth knowing:
 Each deploy job rebuilds rather than reusing the verify job's bundle, because
 Vite inlines `VITE_*` values at build time — a bundle built with staging config
 would point at staging no matter where it is deployed.
+
+---
+
+## Deleting a project
+
+There is no CLI command — `firebase projects:` offers only `create`,
+`addfirebase` and `list`. Deletion is console-only.
+
+**Check nothing still points at it first.** A deleted project cannot be
+recovered after 30 days, and its ID is never reusable, so a missed reference
+cannot be fixed by recreating it:
+
+```bash
+grep -rn '<old-project-id>' --include='*.json' --include='*.yml' --include='*.ts' . | grep -v node_modules
+cat .firebaserc
+gh variable list --env staging     # and --env production
+```
+
+Then: [Firebase console](https://console.firebase.google.com) → the project →
+gear → **Project settings** → General → scroll to the bottom → **Delete
+project**. You must type the project ID to confirm.
+
+A project with no Firebase attached — for example a bare Cloud project left
+behind by a failed `projects:create` — will not appear in the Firebase console.
+Delete those from [Cloud Resource Manager](https://console.cloud.google.com/cloud-resource-manager)
+instead: tick it → **Delete**.
+
+What deletion does:
+
+- Everything inside goes with it — Firestore data, Storage objects, deployed
+  functions, hosting releases, Auth users, service accounts and their keys.
+  Billing for the project stops.
+- It is a **30-day soft delete**. The project sits in "pending deletion" and can
+  be restored from Cloud Resource Manager during that window, which is your
+  safety net if you delete the wrong one.
+- After 30 days it is irreversible, and **the ID is never released for reuse**
+  even then.
+
+Delete the local service account keys for that project too — they are useless
+once it is gone, but they are still credentials until the project dies:
+
+```bash
+rm -P ~/.secrets/<old-project>-*.json
+```
 
 ---
 

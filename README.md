@@ -118,7 +118,7 @@ fails AA badly.
 
 **→ Full step-by-step guide: [docs/firebase-setup.md](docs/firebase-setup.md)**
 
-Two projects (`racewire-staging`, `racewire-prod`), with GitHub Actions
+Two projects (`racewire-stg`, `racewire-live`), with GitHub Actions
 deploying on push:
 
 | Event | Result |
