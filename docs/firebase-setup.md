@@ -130,11 +130,48 @@ This one is optional. Leave it blank and in-browser notifications are simply
 disabled — the app checks for it and degrades cleanly. SMS and WhatsApp are
 unaffected.
 
-### 3c. Paste it into `.env.local`
+### 3c. Where the values go
 
-Create the file if it isn't there yet (`cp .env.example .env.local`), then map
-the values across. **The names differ from the JS keys** — camelCase becomes
-`VITE_FIREBASE_` + SCREAMING_SNAKE:
+You do this **twice**, once per project, and the two have different
+destinations. This trips people up, so read the table before pasting anything:
+
+| Project | Goes into | Why |
+| --- | --- | --- |
+| **staging** | `.env.local` **and** the GitHub `staging` environment | `.env.local` is what `npm run dev` reads, so staging is the project you develop against |
+| **production** | the GitHub `production` environment **only** | you never run the app locally against production — there is deliberately no local file for it |
+
+So for production there is nothing to paste into `.env.local`. Its values exist
+only so CI can build a production bundle.
+
+The easiest way to load either one is to put the values in a dotenv file and let
+the script push them up:
+
+```bash
+# staging — the file you already have
+node scripts/sync-github-env.mjs staging .env.local
+
+# production — a scratch file, gitignored, delete it afterwards
+cp .env.example .env.production.local     # fill with PRODUCTION values
+node scripts/sync-github-env.mjs production .env.production.local
+rm .env.production.local
+```
+
+The script refuses to write if the values are internally inconsistent — a
+`storageBucket` from the wrong project, or an `appId` that does not embed the
+sender ID. That mistake otherwise produces a deployed app that silently talks to
+the wrong Firebase project, which is very hard to spot.
+
+It sets variables only; the `FIREBASE_SERVICE_ACCOUNT` secret stays manual:
+
+```bash
+gh secret set FIREBASE_SERVICE_ACCOUNT --env production \
+  < ~/.secrets/racewire-prod-deployer.json
+```
+
+### The names
+
+Whether you edit a file or the GitHub UI, **the names differ from the JS keys** —
+camelCase becomes `VITE_FIREBASE_` + SCREAMING_SNAKE:
 
 | `firebaseConfig` key | `.env.local` variable |
 | --- | --- |
@@ -162,10 +199,10 @@ VITE_USE_FIREBASE_EMULATORS=false
 No quotes, no spaces around `=`, no trailing commas — this is a dotenv file, not
 JavaScript.
 
-Use the **staging** values here. `.env.local` is gitignored; never commit real
-ones. They are not secrets (they ship in the client bundle — Firestore and
-Storage rules are what actually protect your data), but keeping staging and
-production apart locally still matters.
+`.env.local` takes the **staging** values, never production. It is gitignored;
+never commit real ones. They are not secrets (they ship in the client bundle —
+Firestore and Storage rules are what actually protect your data), but pointing
+your dev server at production is how test notices end up on the live board.
 
 ### 3d. Check it worked
 
@@ -177,11 +214,21 @@ Open http://localhost:5399. If the config is wrong or incomplete the app throws
 a startup error naming the missing keys — that is deliberate, not a bug. A
 loading board with no error means it connected.
 
-### 3e. The same values go to GitHub later
+### 3e. Repeat for production
 
-Step 7 puts these into GitHub **variables** so CI can build with them, once per
-environment, plus one extra (`FIREBASE_PROJECT_ID`) that the deploy step uses to
-target the right project. Keep this config to hand — you will paste it twice.
+When you create the production project, come back and do 3a–3b again against
+it: register a web app, generate its own VAPID key, then sync straight to
+GitHub with no local file:
+
+```bash
+cp .env.example .env.production.local     # fill with PRODUCTION values
+node scripts/sync-github-env.mjs production .env.production.local
+rm .env.production.local
+```
+
+Each project has its own web app registration and its own VAPID key. Reusing
+staging's is the single most common way to end up with a production site
+writing into the staging database.
 
 ---
 
