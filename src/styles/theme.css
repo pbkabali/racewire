@@ -1,0 +1,106 @@
+/*
+ * Semantic roles. Components reference ONLY these, never raw palette values,
+ * which is what makes a rebrand a one-file change (see palette.css).
+ *
+ * Three states, and all three must be handled:
+ *   1. no data-theme + system light  -> the bare :root block
+ *   2. no data-theme + system dark   -> the prefers-color-scheme block
+ *   3. explicit choice               -> the [data-theme] blocks, which win
+ *
+ * The dark media query is guarded with :not([data-theme='light']) so an explicit
+ * light choice is not overridden by a dark OS setting.
+ */
+
+/* ---- Light (also the default when no preference is expressed) ---------- */
+:root {
+  color-scheme: light;
+
+  --bg: var(--neutral-1000);
+  --surface: var(--neutral-900);
+  --surface-raised: var(--neutral-1000);
+  --edge: var(--neutral-600);
+
+  --fg: var(--neutral-0);
+  --fg-muted: var(--neutral-300);
+  --fg-subtle: var(--neutral-400);
+
+  --accent: var(--brand-accent);
+  /* Text sitting ON an accent fill. */
+  --accent-fg: var(--neutral-0);
+  /* Accent-COLOURED text on a normal background; needs the deep cut here. */
+  --accent-text: var(--brand-accent-deep);
+
+  --danger: var(--brand-danger);
+  --danger-fg: var(--neutral-1000);
+  --danger-text: var(--brand-danger-deep);
+}
+
+/* ---- Dark, via OS preference ------------------------------------------ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg: var(--neutral-0);
+    --surface: var(--neutral-50);
+    --surface-raised: var(--neutral-100);
+    --edge: var(--neutral-200);
+
+    --fg: var(--neutral-900);
+    --fg-muted: var(--neutral-600);
+    --fg-subtle: var(--neutral-400);
+
+    --accent: var(--brand-accent);
+    --accent-fg: var(--neutral-0);
+    /* On dark, full-strength yellow already has ample contrast. */
+    --accent-text: var(--brand-accent);
+
+    --danger: var(--brand-danger);
+    --danger-fg: var(--neutral-1000);
+    --danger-text: #ff4d47;
+  }
+}
+
+/* ---- Dark, chosen explicitly ------------------------------------------ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: var(--neutral-0);
+  --surface: var(--neutral-50);
+  --surface-raised: var(--neutral-100);
+  --edge: var(--neutral-200);
+
+  --fg: var(--neutral-900);
+  --fg-muted: var(--neutral-600);
+  --fg-subtle: var(--neutral-400);
+
+  --accent: var(--brand-accent);
+  --accent-fg: var(--neutral-0);
+  --accent-text: var(--brand-accent);
+
+  --danger: var(--brand-danger);
+  --danger-fg: var(--neutral-1000);
+  --danger-text: #ff4d47;
+}
+
+/* ---- Light, chosen explicitly ----------------------------------------- */
+/* Repeated rather than inherited so an explicit light choice beats a dark OS. */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: var(--neutral-1000);
+  --surface: var(--neutral-900);
+  --surface-raised: var(--neutral-1000);
+  --edge: var(--neutral-600);
+
+  --fg: var(--neutral-0);
+  --fg-muted: var(--neutral-300);
+  --fg-subtle: var(--neutral-400);
+
+  --accent: var(--brand-accent);
+  --accent-fg: var(--neutral-0);
+  --accent-text: var(--brand-accent-deep);
+
+  --danger: var(--brand-danger);
+  --danger-fg: var(--neutral-1000);
+  --danger-text: var(--brand-danger-deep);
+}

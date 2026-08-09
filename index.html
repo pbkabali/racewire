@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <!-- viewport-fit=cover lets the safe-area insets in index.css do their job on notched phones. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0b0c" />
+    <meta
+      name="description"
+      content="Live noticeboard for race day: notices, schedule and alerts, working even without signal."
+    />
+    <title>Racewire</title>
+    <script>
+      /*
+       * Apply the saved theme before first paint.
+       *
+       * React cannot do this: it runs after the document has already painted,
+       * so a user who chose light would see a dark flash on every load. Kept
+       * inline and tiny for that reason -- an external file would be a
+       * render-blocking round trip.
+       */
+      (function () {
+        try {
+          var choice = localStorage.getItem('racewire:theme')
+          if (choice === 'light' || choice === 'dark') {
+            document.documentElement.setAttribute('data-theme', choice)
+          }
+          var dark =
+            choice === 'dark' ||
+            ((choice === 'system' || !choice) &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute('content', dark ? '#0b0b0c' : '#ffffff')
+        } catch (e) {
+          /* no storage access: fall back to the OS preference */
+        }
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

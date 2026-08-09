@@ -1,0 +1,106 @@
+# ---------- macOS ----------
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+
+# Icon file created by custom folder icons (name ends in a carriage return)
+Icon[]
+
+# Files that might appear on external disks
+.Spotlight-V100
+.Trashes
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.fseventsd
+.DocumentRevisions-V100
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# ---------- Dependencies ----------
+node_modules/
+jspm_packages/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/versions
+
+# ---------- TypeScript ----------
+# Compiler output
+dist/
+build/
+out/
+
+# Incremental compilation / project references cache
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Declaration + sourcemap artifacts emitted next to sources
+*.js.map
+*.d.ts.map
+
+# ---------- Vite ----------
+dist-ssr/
+dev-dist/
+.vite/
+
+# ---------- Firebase ----------
+# Local emulator state, deploy cache and CLI debug logs.
+.firebase/
+*-debug.log
+firebase-debug.*.log
+firestore-debug.log
+database-debug.log
+pubsub-debug.log
+ui-debug.log
+
+# Cloud Functions compiler output (functions/tsconfig.json outDir)
+functions/lib/
+
+# Service account keys -- these are real credentials, never commit them.
+# Broad on purpose: these files arrive from the console under names you do not
+# choose, and one committed key is a full project compromise.
+*serviceAccount*.json
+*service-account*.json
+*-firebase-adminsdk-*.json
+*deployer*.json
+*-sa.json
+*.key.json
+.secrets/
+
+# ---------- Caches ----------
+.cache/
+.eslintcache
+.parcel-cache/
+.turbo/
+.rollup.cache/
+*.tgz
+
+# ---------- Test & coverage ----------
+coverage/
+*.lcov
+.nyc_output/
+
+# ---------- Logs ----------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ---------- Environment ----------
+.env
+.env.*
+!.env.example

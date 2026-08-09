@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+@import './styles/palette.css';
+@import './styles/theme.css';
+
+/*
+ * `inline` matters here: it makes utilities emit `var(--surface)` directly
+ * instead of copying the value at build time, which is what lets the theme
+ * swap at runtime when data-theme changes.
+ */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-edge: var(--edge);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-text: var(--accent-text);
+
+  --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-text: var(--danger-text);
+
+  --font-display: 'Archivo', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    background-color: var(--bg);
+    /* Stop iOS from inflating text in landscape. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-bg text-fg antialiased;
+    /* Respect notches and the home indicator on phones. */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* Visible focus for keyboard users without ringing every mouse click. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+}
+
+@layer utilities {
+  /* Kill momentum-scroll bounce on the fixed app shell. */
+  .overscroll-none-y {
+    overscroll-behavior-y: none;
+  }
+}

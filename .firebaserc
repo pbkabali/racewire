@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "racewire-stg",
+    "staging": "racewire-stg",
+    "production": "racewire-live"
+  }
+}
