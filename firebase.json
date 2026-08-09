@@ -11,7 +11,7 @@
       "source": "functions",
       "codebase": "default",
       "runtime": "nodejs22",
-      "ignore": ["node_modules", ".git", "*.local", "**/*.test.ts"],
+      "ignore": ["node_modules", ".git", "*.local", "**/*.test.ts", "scripts"],
       "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
     }
   ],
@@ -26,12 +26,10 @@
     ],
     "headers": [
       {
-        "comment": "Hashed build assets are immutable; cache them hard.",
         "source": "/assets/**",
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
       },
       {
-        "comment": "Never cache the worker or the shell, or clients get stuck on an old build.",
         "source": "/sw.js",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },

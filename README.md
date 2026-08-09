@@ -114,7 +114,23 @@ build. Note `--brand-accent-deep`, a darker cut of the accent used for
 accent-coloured *text* in light mode, because full-strength yellow on white
 fails AA badly.
 
-## Firebase setup
+## Firebase setup & deployment
+
+**→ Full step-by-step guide: [docs/firebase-setup.md](docs/firebase-setup.md)**
+
+Two projects (`racewire-staging`, `racewire-prod`), with GitHub Actions
+deploying on push:
+
+| Event | Result |
+| --- | --- |
+| Any PR | Verify + Hosting-only preview URL, expires in 7 days |
+| Push to `staging` | Verify + full deploy to staging |
+| Push to `main` | Verify + full deploy to production |
+
+Note **Blaze plan is required** — Storage and Cloud Functions cannot be
+provisioned on the free Spark plan.
+
+### Quick reference
 
 Not yet connected to a project. When you are ready:
 

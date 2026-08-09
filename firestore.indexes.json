@@ -1,7 +1,6 @@
 {
   "indexes": [
     {
-      "_comment": "Required by useNotices(): orderBy pinned desc, publishedAt desc. Firestore cannot serve a multi-field sort from single-field indexes.",
       "collectionGroup": "notices",
       "queryScope": "COLLECTION",
       "fields": [
@@ -10,7 +9,6 @@
       ]
     },
     {
-      "_comment": "Notices filtered to one race, newest first.",
       "collectionGroup": "notices",
       "queryScope": "COLLECTION",
       "fields": [

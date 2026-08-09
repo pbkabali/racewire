@@ -1,0 +1,49 @@
+name: Verify
+
+# Reusable only -- deploy.yml owns the triggers and calls this as its first
+# job. Keeping the triggers in one place means a push runs these checks once,
+# not twice, while deployment still strictly depends on them passing.
+on:
+  workflow_call:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Typecheck app, service worker and node config
+        run: npx tsc -b --force
+
+      - name: Typecheck functions
+        run: npx tsc --noEmit --project functions
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Contrast audit (both themes)
+        run: npm run check:contrast
+
+      - name: Build
+        # Placeholders on purpose. This build only proves the bundle compiles;
+        # each deploy job rebuilds with its own environment's real config,
+        # because Vite inlines these values at build time.
+        env:
+          VITE_FIREBASE_API_KEY: ci-placeholder
+          VITE_FIREBASE_AUTH_DOMAIN: ci.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ci-placeholder
+          VITE_FIREBASE_STORAGE_BUCKET: ci.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+          VITE_FIREBASE_APP_ID: '1:0:web:ci'
+        run: npm run build

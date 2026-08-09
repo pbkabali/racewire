@@ -68,9 +68,15 @@ ui-debug.log
 functions/lib/
 
 # Service account keys -- these are real credentials, never commit them.
+# Broad on purpose: these files arrive from the console under names you do not
+# choose, and one committed key is a full project compromise.
 *serviceAccount*.json
 *service-account*.json
 *-firebase-adminsdk-*.json
+*deployer*.json
+*-sa.json
+*.key.json
+.secrets/
 
 # ---------- Caches ----------
 .cache/
