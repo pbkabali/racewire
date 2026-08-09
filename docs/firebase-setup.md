@@ -71,22 +71,89 @@ needs a Cloud Billing budget with a Pub/Sub kill-switch, which is overkill here.
 
 ## 3. Register the web app and collect config
 
-Per project: console → gear → Project settings → **Your apps** → Web (`</>`) →
-register. Copy the `firebaseConfig` values.
+### 3a. Get the config
 
-Also grab the push key: Project settings → **Cloud Messaging** → Web Push
-certificates → **Generate key pair**. That is your `VITE_FIREBASE_VAPID_KEY`.
+Console → gear → **Project settings** → **General** tab → scroll to **Your
+apps** → click the Web icon (`</>`) → register with a nickname (e.g. `racewire
+web`). Skip the "Add Firebase SDK" snippet — the code is already written.
 
-### Local development
+Under **SDK setup and configuration**, choose **Config**. You get this:
 
-```bash
-cp .env.example .env.local
+```js
+const firebaseConfig = {
+  apiKey: "AIzaSyD-EXAMPLE-abc123",
+  authDomain: "racewire-staging-eda04.firebaseapp.com",
+  projectId: "racewire-staging-eda04",
+  storageBucket: "racewire-staging-eda04.firebasestorage.app",
+  messagingSenderId: "495883225823",
+  appId: "1:495883225823:web:0a1b2c3d4e5f6789"
+}
 ```
 
-Fill it with the **staging** values. `.env.local` is gitignored — never commit
-real values. (These are not secrets; they ship in the client bundle. Firestore
-and Storage rules are what actually protect your data. But keeping staging and
-production apart locally still matters.)
+(If you already registered the app, it's on that same screen — you do not need
+to register a second one.)
+
+### 3b. Get the push key
+
+Project settings → **Cloud Messaging** tab → **Web Push certificates** →
+**Generate key pair**. Copy the long "Key pair" string.
+
+This one is optional. Leave it blank and in-browser notifications are simply
+disabled — the app checks for it and degrades cleanly. SMS and WhatsApp are
+unaffected.
+
+### 3c. Paste it into `.env.local`
+
+Create the file if it isn't there yet (`cp .env.example .env.local`), then map
+the values across. **The names differ from the JS keys** — camelCase becomes
+`VITE_FIREBASE_` + SCREAMING_SNAKE:
+
+| `firebaseConfig` key | `.env.local` variable |
+| --- | --- |
+| `apiKey` | `VITE_FIREBASE_API_KEY` |
+| `authDomain` | `VITE_FIREBASE_AUTH_DOMAIN` |
+| `projectId` | `VITE_FIREBASE_PROJECT_ID` |
+| `storageBucket` | `VITE_FIREBASE_STORAGE_BUCKET` |
+| `messagingSenderId` | `VITE_FIREBASE_MESSAGING_SENDER_ID` |
+| `appId` | `VITE_FIREBASE_APP_ID` |
+| *(Cloud Messaging tab)* | `VITE_FIREBASE_VAPID_KEY` |
+
+Filled in, using the values above:
+
+```dotenv
+VITE_FIREBASE_API_KEY=AIzaSyD-EXAMPLE-abc123
+VITE_FIREBASE_AUTH_DOMAIN=racewire-staging-eda04.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=racewire-staging-eda04
+VITE_FIREBASE_STORAGE_BUCKET=racewire-staging-eda04.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=495883225823
+VITE_FIREBASE_APP_ID=1:495883225823:web:0a1b2c3d4e5f6789
+VITE_FIREBASE_VAPID_KEY=BFx...long-string-from-3b
+VITE_USE_FIREBASE_EMULATORS=false
+```
+
+No quotes, no spaces around `=`, no trailing commas — this is a dotenv file, not
+JavaScript.
+
+Use the **staging** values here. `.env.local` is gitignored; never commit real
+ones. They are not secrets (they ship in the client bundle — Firestore and
+Storage rules are what actually protect your data), but keeping staging and
+production apart locally still matters.
+
+### 3d. Check it worked
+
+```bash
+npm run dev
+```
+
+Open http://localhost:5399. If the config is wrong or incomplete the app throws
+a startup error naming the missing keys — that is deliberate, not a bug. A
+loading board with no error means it connected.
+
+### 3e. The same values go to GitHub later
+
+Step 7 puts these into GitHub **variables** so CI can build with them, once per
+environment, plus one extra (`FIREBASE_PROJECT_ID`) that the deploy step uses to
+target the right project. Keep this config to hand — you will paste it twice.
 
 ---
 
