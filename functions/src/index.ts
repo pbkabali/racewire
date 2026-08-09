@@ -6,7 +6,7 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 
 import { dispatchNotice } from './notify/dispatch.js'
-import { SHEET_ID, SHEET_RANGE, syncRacesFromSheet } from './sheets/sync.js'
+import { syncRacesFromSheet } from './sheets/sync.js'
 
 initializeApp()
 
@@ -100,5 +100,3 @@ export const grantAdmin = onCall(async (request) => {
   await getAuth().setCustomUserClaims(uid, { admin: admin !== false })
   return { uid, admin: admin !== false }
 })
-
-export { SHEET_ID, SHEET_RANGE }

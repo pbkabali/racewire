@@ -118,6 +118,19 @@ jobs:
           VITE_FIREBASE_VAPID_KEY: ${{ vars.VITE_FIREBASE_VAPID_KEY }}
         run: npm run build
 
+      - name: Write functions runtime env
+        # firebase-tools ships functions/.env values as runtime env vars.
+        # Written here rather than committed so each environment gets its own,
+        # and so an unset SHEET_ID stays empty instead of prompting at deploy.
+        env:
+          SHEET_ID: ${{ vars.SHEET_ID }}
+          SHEET_RANGE: ${{ vars.SHEET_RANGE }}
+        run: |
+          {
+            echo "SHEET_ID=${SHEET_ID}"
+            echo "SHEET_RANGE=${SHEET_RANGE:-Races!A1:E}"
+          } > functions/.env
+
       - name: Authenticate to Firebase
         env:
           SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
@@ -163,6 +176,19 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_VAPID_KEY: ${{ vars.VITE_FIREBASE_VAPID_KEY }}
         run: npm run build
+
+      - name: Write functions runtime env
+        # firebase-tools ships functions/.env values as runtime env vars.
+        # Written here rather than committed so each environment gets its own,
+        # and so an unset SHEET_ID stays empty instead of prompting at deploy.
+        env:
+          SHEET_ID: ${{ vars.SHEET_ID }}
+          SHEET_RANGE: ${{ vars.SHEET_RANGE }}
+        run: |
+          {
+            echo "SHEET_ID=${SHEET_ID}"
+            echo "SHEET_RANGE=${SHEET_RANGE:-Races!A1:E}"
+          } > functions/.env
 
       - name: Authenticate to Firebase
         env:

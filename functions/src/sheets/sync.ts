@@ -1,7 +1,6 @@
 import { GoogleAuth } from 'google-auth-library'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { logger } from 'firebase-functions'
-import { defineString } from 'firebase-functions/params'
 
 /*
  * Google Sheets -> Firestore, one way.
@@ -15,15 +14,22 @@ import { defineString } from 'firebase-functions/params'
  * and enable the Sheets API on the project.
  */
 
-export const SHEET_ID = defineString('SHEET_ID', {
-  description: 'Spreadsheet ID from the sheet URL: /spreadsheets/d/<THIS>/edit',
-  default: '',
-})
-
-export const SHEET_RANGE = defineString('SHEET_RANGE', {
-  description: 'A1 range to import, including the header row',
-  default: 'Races!A1:E',
-})
+/*
+ * Configured through the environment, not firebase-functions params.
+ *
+ * A defineString() param with no value makes the CLI PROMPT for one at deploy
+ * time. That is merely annoying locally and fatal in CI, which deploys with
+ * --non-interactive: the prompt becomes an error and takes the whole atomic
+ * deploy down with it, hosting and rules included.
+ *
+ * Set these in `functions/.env` (or `.env.<project-id>` for one project only);
+ * firebase-tools loads those files and ships them as runtime env vars. CI
+ * writes that file from the SHEET_ID / SHEET_RANGE repo variables.
+ *
+ * Unset simply means the sync is skipped -- see syncRacesFromSheet below.
+ */
+const sheetId = () => process.env.SHEET_ID ?? ''
+const sheetRange = () => process.env.SHEET_RANGE || 'Races!A1:E'
 
 const auth = new GoogleAuth({
   scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
@@ -41,8 +47,8 @@ const VALID_STATUSES = new Set(['scheduled', 'running', 'finished', 'cancelled']
 
 /** Pull the sheet and mirror it into the `races` collection. Returns rows written. */
 export async function syncRacesFromSheet(): Promise<number> {
-  const sheetId = SHEET_ID.value()
-  if (!sheetId) {
+  const id = sheetId()
+  if (!id) {
     logger.warn('syncRacesFromSheet skipped: SHEET_ID is not set')
     return 0
   }
@@ -51,8 +57,8 @@ export async function syncRacesFromSheet(): Promise<number> {
   const token = await client.getAccessToken()
 
   const url =
-    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/` +
-    `${encodeURIComponent(SHEET_RANGE.value())}?valueRenderOption=UNFORMATTED_VALUE`
+    `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/` +
+    `${encodeURIComponent(sheetRange())}?valueRenderOption=UNFORMATTED_VALUE`
 
   const response = await fetch(url, {
     headers: { authorization: `Bearer ${token.token}` },
