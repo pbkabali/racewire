@@ -45,9 +45,37 @@ what `--project staging` and `--project production` resolve to.
 
 ```bash
 npx firebase-tools login          # opens a browser
-npx firebase-tools projects:create racewire-staging --display-name "Racewire (staging)"
-npx firebase-tools projects:create racewire-prod    --display-name "Racewire"
+npx firebase-tools projects:create <your-id> --display-name "Racewire (staging)"
+npx firebase-tools projects:create <your-id> --display-name "Racewire"
 ```
+
+Prefer the CLI over the console here: if the ID is taken it **fails loudly**,
+whereas the console silently appends a suffix and hands you a different ID than
+the one you asked for.
+
+Then record what you actually got:
+
+```bash
+npx firebase-tools projects:list        # confirm the real IDs
+```
+
+and put them in `.firebaserc`:
+
+```json
+{
+  "projects": {
+    "default": "racewire-staging-eda04",
+    "staging": "racewire-staging-eda04",
+    "production": "racewire-prod"
+  }
+}
+```
+
+**Every command below uses `--project staging` / `--project production`** — the
+aliases, not raw IDs. Passing a raw ID that is wrong produces a confusing
+`Service Usage API has not been used in project ...` 403 rather than a clear
+"no such project", because the CLI happily targets any Cloud project you can
+see, Firebase-enabled or not.
 
 For each project, in the [Firebase console](https://console.firebase.google.com):
 
@@ -166,7 +194,7 @@ composite index the board returns an error rather than an empty state.
 ```bash
 npx firebase-tools deploy \
   --only firestore:rules,firestore:indexes,storage \
-  --project racewire-staging
+  --project staging
 ```
 
 The two composite indexes, since `firestore.indexes.json` is schema-validated
@@ -189,7 +217,7 @@ of band.
 3. Grant the claim:
 
 ```bash
-npx firebase-tools functions:shell --project racewire-staging
+npx firebase-tools functions:shell --project staging
 # then, at the prompt:
 > require('firebase-admin').auth().setCustomUserClaims('<UID>', { admin: true })
 ```
@@ -231,11 +259,16 @@ For **each** environment, add:
 | `FIREBASE_SERVICE_ACCOUNT` | the whole JSON file contents |
 
 **Variables** (public by design — they ship in the bundle, so they are variables
-rather than secrets, which keeps them readable and diffable):
+rather than secrets, which keeps them readable and diffable).
+
+Use the **real project ID** here, not the `staging`/`production` alias. The
+alias would resolve — `.firebaserc` is committed — but an explicit ID means the
+environment states its own target rather than depending on a repo file staying
+in sync with it:
 
 | Name | Value |
 | --- | --- |
-| `FIREBASE_PROJECT_ID` | `racewire-staging` / `racewire-prod` |
+| `FIREBASE_PROJECT_ID` | the real ID, e.g. `racewire-staging-eda04` |
 | `VITE_FIREBASE_API_KEY` | from step 3 |
 | `VITE_FIREBASE_AUTH_DOMAIN` | from step 3 |
 | `VITE_FIREBASE_PROJECT_ID` | from step 3 |
@@ -255,11 +288,11 @@ approval instead of going straight out.
 These live in Firebase, not GitHub, because functions read them at runtime:
 
 ```bash
-npx firebase-tools functions:secrets:set WHATSAPP_TOKEN            --project racewire-prod
-npx firebase-tools functions:secrets:set WHATSAPP_PHONE_NUMBER_ID  --project racewire-prod
-npx firebase-tools functions:secrets:set TWILIO_ACCOUNT_SID        --project racewire-prod
-npx firebase-tools functions:secrets:set TWILIO_AUTH_TOKEN         --project racewire-prod
-npx firebase-tools functions:secrets:set TWILIO_FROM_NUMBER        --project racewire-prod
+npx firebase-tools functions:secrets:set WHATSAPP_TOKEN            --project production
+npx firebase-tools functions:secrets:set WHATSAPP_PHONE_NUMBER_ID  --project production
+npx firebase-tools functions:secrets:set TWILIO_ACCOUNT_SID        --project production
+npx firebase-tools functions:secrets:set TWILIO_AUTH_TOKEN         --project production
+npx firebase-tools functions:secrets:set TWILIO_FROM_NUMBER        --project production
 ```
 
 Each provider reports `isConfigured()` false until its secrets exist, and
@@ -330,6 +363,14 @@ that CI works.
 
 **Board shows an error instead of notices** — the composite index is missing.
 Run step 4.
+
+**`Service Usage API has not been used in project <id> before or it is
+disabled`** — almost always the wrong project, not a disabled API. The CLI will
+target any Cloud project your account can see, including one with no Firebase on
+it, and the resulting 403 names the API rather than the real problem. Check
+against `npx firebase-tools projects:list` and prefer `--project staging` /
+`--project production` over typing an ID. If the ID really is right, the link in
+the error does enable the API.
 
 **Renaming a project** — the Firebase CLI cannot do it; `projects:` only offers
 `create`, `addfirebase` and `list`. Change the *display name* in console →
