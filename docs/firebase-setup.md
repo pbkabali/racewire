@@ -45,9 +45,13 @@ what `--project staging` and `--project production` resolve to.
 
 ```bash
 npx firebase-tools login          # opens a browser
-npx firebase-tools projects:create <your-id> --display-name "Racewire (staging)"
-npx firebase-tools projects:create <your-id> --display-name "Racewire"
+npx firebase-tools projects:create racewire-stg  --display-name "Racewire staging"
+npx firebase-tools projects:create racewire-live --display-name "Racewire"
 ```
+
+Display names allow only letters, numbers, spaces, hyphens, single quotes and
+exclamation marks — **parentheses are rejected** with a rather unhelpful
+`display_name has issue [contains invalid characters]`.
 
 Prefer the CLI over the console here: if the ID is taken it **fails loudly**,
 whereas the console silently appends a suffix and hands you a different ID than
@@ -80,9 +84,20 @@ see, Firebase-enabled or not.
 For each project, in the [Firebase console](https://console.firebase.google.com):
 
 1. **Upgrade to Blaze** — gear icon → Usage and billing → Modify plan.
-2. **Firestore** → Create database → production mode → pick a region close to
-   the event. *The region is permanent.*
-3. **Storage** → Get started → same region.
+2. **Firestore** → Create database → production mode → **`europe-west1`**.
+3. **Storage** → Get started → **`europe-west1`**, the same region.
+
+> **The Firestore location is permanent and cannot be changed later.** Get it
+> right now; the only remedies afterwards are a second named database or a new
+> project.
+>
+> `europe-west1` because the event is in East Africa: it is roughly 150ms closer
+> than a US region, it is single-region so cheaper per operation than a
+> multi-region like `nam5`, and it matches the functions region set in
+> `functions/src/index.ts`. A Firestore trigger runs in the database's location,
+> so a mismatch means every notice fan-out makes a cross-region hop.
+>
+> Storage goes in the same region for the same reason.
 4. **Authentication** → Get started → enable **Email/Password**.
 5. **Hosting** → Get started (you can skip the CLI instructions it shows).
 
