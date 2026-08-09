@@ -392,20 +392,55 @@ approval instead of going straight out.
 
 ---
 
-## 8. Messaging and Sheets secrets (optional, when ready)
+## 8. Messaging secrets (optional, when ready)
 
-These live in Firebase, not GitHub, because functions read them at runtime:
+**Skip this until you actually have a Twilio or WhatsApp account.** Nothing
+below is needed to deploy; push notifications work without it, and SMS/WhatsApp
+are skipped at runtime until configured.
+
+Enabling a channel is **two steps**, and doing only the first has no effect.
+
+### 8a. Create the secrets
+
+They live in Google Secret Manager, not GitHub, because functions read them at
+runtime:
 
 ```bash
+npx firebase-tools functions:secrets:set TWILIO_ACCOUNT_SID   --project production
+npx firebase-tools functions:secrets:set TWILIO_AUTH_TOKEN    --project production
+npx firebase-tools functions:secrets:set TWILIO_FROM_NUMBER   --project production
+# or, for WhatsApp:
 npx firebase-tools functions:secrets:set WHATSAPP_TOKEN            --project production
 npx firebase-tools functions:secrets:set WHATSAPP_PHONE_NUMBER_ID  --project production
-npx firebase-tools functions:secrets:set TWILIO_ACCOUNT_SID        --project production
-npx firebase-tools functions:secrets:set TWILIO_AUTH_TOKEN         --project production
-npx firebase-tools functions:secrets:set TWILIO_FROM_NUMBER        --project production
 ```
 
-Each provider reports `isConfigured()` false until its secrets exist, and
-dispatch skips it — nothing breaks while they are unset.
+This needs the **Secret Manager API** enabled on the project; the CLI will
+offer to enable it.
+
+### 8b. Bind them to the function
+
+Creating a secret does not deliver it to your code. Edit
+`functions/src/index.ts`:
+
+```ts
+import { defineSecret } from 'firebase-functions/params'
+
+const messagingSecrets = [
+  defineSecret('TWILIO_ACCOUNT_SID'),
+  defineSecret('TWILIO_AUTH_TOKEN'),
+  defineSecret('TWILIO_FROM_NUMBER'),
+]
+```
+
+then deploy. The binding injects them into `process.env`, which is where
+`functions/src/notify/providers/*.ts` read them.
+
+> **Why this is not bound by default.** A bound secret is a *deploy-time*
+> dependency — the CLI resolves it against Secret Manager before deploying, and
+> a Firebase deploy is atomic. Declaring secrets that have never been created
+> therefore fails the entire deploy, taking hosting and Firestore rules down
+> with it. The site would be unable to ship until you had a Twilio account.
+> Only bind secrets that exist.
 
 For Sheets: share the spreadsheet (Viewer) with
 `<project-id>@appspot.gserviceaccount.com`, enable the Sheets API on the
@@ -494,6 +529,14 @@ works but widens CI's blast radius permanently to fix a one-time setup step.
 
 **Board shows an error instead of notices** — the composite index is missing.
 Run step 4.
+
+**`Secret Manager API has not been used in project ... 403`, or `secret
+TWILIO_… does not exist`, during a deploy** — a `defineSecret()` param is bound
+to a function but the secret has never been created. Declared secrets are
+deploy-time dependencies, so this fails the whole deploy including hosting and
+rules. Either create the secret (step 8a) or remove it from `messagingSecrets`
+in `functions/src/index.ts`. Out of the box that list is empty precisely so a
+fresh project can deploy with no messaging accounts.
 
 **`Service Usage API has not been used in project <id> before or it is
 disabled`** — almost always the wrong project, not a disabled API. The CLI will

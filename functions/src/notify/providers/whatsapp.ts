@@ -1,5 +1,3 @@
-import { defineSecret } from 'firebase-functions/params'
-
 import type { NotificationProvider, OutboundMessage, SendResult } from '../types.js'
 
 /*
@@ -18,8 +16,11 @@ import type { NotificationProvider, OutboundMessage, SendResult } from '../types
  * the template must be approved in Meta Business Manager first.
  */
 
-export const WHATSAPP_TOKEN = defineSecret('WHATSAPP_TOKEN')
-export const WHATSAPP_PHONE_NUMBER_ID = defineSecret('WHATSAPP_PHONE_NUMBER_ID')
+/* See the note in sms.ts: declared secrets are deploy-time dependencies, so
+ * these are read from the environment and injected by the binding in index.ts
+ * only once the secrets actually exist. */
+const token = () => process.env.WHATSAPP_TOKEN ?? ''
+const phoneNumberId = () => process.env.WHATSAPP_PHONE_NUMBER_ID ?? ''
 
 /** Name of the approved template used for race alerts. Two body params: title, body. */
 const ALERT_TEMPLATE = 'racewire_alert'
@@ -28,7 +29,7 @@ export const whatsappProvider: NotificationProvider = {
   channel: 'whatsapp',
 
   isConfigured(): boolean {
-    return Boolean(WHATSAPP_TOKEN.value() && WHATSAPP_PHONE_NUMBER_ID.value())
+    return Boolean(token() && phoneNumberId())
   },
 
   async send(message: OutboundMessage): Promise<SendResult> {
@@ -43,11 +44,11 @@ export const whatsappProvider: NotificationProvider = {
 
     try {
       const response = await fetch(
-        `https://graph.facebook.com/v21.0/${WHATSAPP_PHONE_NUMBER_ID.value()}/messages`,
+        `https://graph.facebook.com/v21.0/${phoneNumberId()}/messages`,
         {
           method: 'POST',
           headers: {
-            authorization: `Bearer ${WHATSAPP_TOKEN.value()}`,
+            authorization: `Bearer ${token()}`,
             'content-type': 'application/json',
           },
           body: JSON.stringify({

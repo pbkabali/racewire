@@ -6,12 +6,6 @@ import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 
 import { dispatchNotice } from './notify/dispatch.js'
-import {
-  TWILIO_ACCOUNT_SID,
-  TWILIO_AUTH_TOKEN,
-  TWILIO_FROM_NUMBER,
-} from './notify/providers/sms.js'
-import { WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TOKEN } from './notify/providers/whatsapp.js'
 import { SHEET_ID, SHEET_RANGE, syncRacesFromSheet } from './sheets/sync.js'
 
 initializeApp()
@@ -20,13 +14,31 @@ initializeApp()
 // here. Change to the region nearest the event.
 setGlobalOptions({ region: 'europe-west1', maxInstances: 10 })
 
-const messagingSecrets = [
-  WHATSAPP_TOKEN,
-  WHATSAPP_PHONE_NUMBER_ID,
-  TWILIO_ACCOUNT_SID,
-  TWILIO_AUTH_TOKEN,
-  TWILIO_FROM_NUMBER,
-]
+/*
+ * Secrets bound to onNoticeCreated. EMPTY ON PURPOSE.
+ *
+ * A bound secret must already exist in Secret Manager or the deploy fails --
+ * and because a Firebase deploy is atomic, that failure takes hosting and rules
+ * down with it. Binding secrets for channels nobody has configured yet would
+ * mean the site cannot ship until Twilio and WhatsApp accounts exist.
+ *
+ * Push (FCM) needs nothing here; it uses the project's own credentials.
+ *
+ * To turn on SMS or WhatsApp:
+ *   1. Create the secrets:
+ *        firebase functions:secrets:set TWILIO_ACCOUNT_SID   --project production
+ *        firebase functions:secrets:set TWILIO_AUTH_TOKEN    --project production
+ *        firebase functions:secrets:set TWILIO_FROM_NUMBER   --project production
+ *      (or WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID)
+ *   2. Add them here:
+ *        import { defineSecret } from 'firebase-functions/params'
+ *        const messagingSecrets = [defineSecret('TWILIO_ACCOUNT_SID'), ...]
+ *   3. Deploy. The binding injects them into process.env, which is where
+ *      functions/src/notify/providers/*.ts read them from.
+ *
+ * Until then each provider reports isConfigured() false and dispatch skips it.
+ */
+const messagingSecrets: never[] = []
 
 /**
  * Fan out every new notice.

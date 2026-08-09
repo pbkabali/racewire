@@ -1,5 +1,3 @@
-import { defineSecret } from 'firebase-functions/params'
-
 import type { NotificationProvider, OutboundMessage, SendResult } from '../types.js'
 
 /*
@@ -13,9 +11,19 @@ import type { NotificationProvider, OutboundMessage, SendResult } from '../types
  *   firebase functions:secrets:set TWILIO_FROM_NUMBER
  */
 
-export const TWILIO_ACCOUNT_SID = defineSecret('TWILIO_ACCOUNT_SID')
-export const TWILIO_AUTH_TOKEN = defineSecret('TWILIO_AUTH_TOKEN')
-export const TWILIO_FROM_NUMBER = defineSecret('TWILIO_FROM_NUMBER')
+/*
+ * Read from the process environment rather than declaring defineSecret() params.
+ *
+ * A declared secret is a DEPLOY-TIME dependency: the CLI resolves it against
+ * Secret Manager before deploying, so declaring one that has never been created
+ * fails the whole deploy -- including hosting and rules. Reading process.env
+ * instead means an unconfigured channel is simply skipped at runtime, which is
+ * the behaviour this scaffold promises. Binding the secrets to the function
+ * (see functions/src/index.ts) is what injects them here once they exist.
+ */
+const sid = () => process.env.TWILIO_ACCOUNT_SID ?? ''
+const token = () => process.env.TWILIO_AUTH_TOKEN ?? ''
+const from = () => process.env.TWILIO_FROM_NUMBER ?? ''
 
 /** SMS is billed per 160-char segment, so long notices get trimmed, not split. */
 const MAX_SMS_LENGTH = 320
@@ -24,9 +32,7 @@ export const smsProvider: NotificationProvider = {
   channel: 'sms',
 
   isConfigured(): boolean {
-    return Boolean(
-      TWILIO_ACCOUNT_SID.value() && TWILIO_AUTH_TOKEN.value() && TWILIO_FROM_NUMBER.value(),
-    )
+    return Boolean(sid() && token() && from())
   },
 
   async send(message: OutboundMessage): Promise<SendResult> {
@@ -40,20 +46,20 @@ export const smsProvider: NotificationProvider = {
     }
 
     const text = truncate(`${message.title}: ${message.body}`, MAX_SMS_LENGTH)
-    const sid = TWILIO_ACCOUNT_SID.value()
+    const accountSid = sid()
 
     try {
       const response = await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
         {
           method: 'POST',
           headers: {
-            authorization: `Basic ${Buffer.from(`${sid}:${TWILIO_AUTH_TOKEN.value()}`).toString('base64')}`,
+            authorization: `Basic ${Buffer.from(`${accountSid}:${token()}`).toString('base64')}`,
             'content-type': 'application/x-www-form-urlencoded',
           },
           body: new URLSearchParams({
             To: message.to,
-            From: TWILIO_FROM_NUMBER.value(),
+            From: from(),
             Body: text,
           }),
         },
