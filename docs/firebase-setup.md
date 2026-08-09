@@ -530,6 +530,36 @@ works but widens CI's blast radius permanently to fix a one-time setup step.
 **Board shows an error instead of notices** — the composite index is missing.
 Run step 4.
 
+**`We failed to modify the IAM policy for the project`** during a functions
+deploy — Cloud Functions v2 needs service-agent bindings that a new project
+lacks: Pub/Sub must mint tokens for `onSchedule`, and Eventarc must receive and
+invoke for the Firestore trigger.
+
+First check you are not accidentally deploying as a service account:
+
+```bash
+echo "$GOOGLE_APPLICATION_CREDENTIALS"
+```
+
+If that prints a path — likely left exported from step 6 — firebase-tools is
+using it instead of your login, and no Admin SDK key can edit IAM. `unset` it
+and retry; as project Owner the CLI grants the bindings itself.
+
+If it is empty, grant them by hand. The CLI prints the exact `gcloud` commands;
+`brew install --cask google-cloud-sdk` if you do not have it. Or in the Cloud
+console → IAM & Admin → IAM → Grant access, on the project:
+
+| Principal | Role |
+| --- | --- |
+| `service-<PROJECT_NUMBER>@gcp-sa-pubsub.iam.gserviceaccount.com` | Service Account Token Creator |
+| `<PROJECT_NUMBER>-compute@developer.gserviceaccount.com` | Cloud Run Invoker |
+| `<PROJECT_NUMBER>-compute@developer.gserviceaccount.com` | Eventarc Event Receiver |
+
+Tick **Include Google-provided role grants** or the service agents are hidden.
+
+This is one-time per project, and deliberately not something CI can do —
+`github-deployer` has no IAM-policy rights, and should not.
+
 **`Secret Manager API has not been used in project ... 403`, or `secret
 TWILIO_… does not exist`, during a deploy** — a `defineSecret()` param is bound
 to a function but the secret has never been created. Declared secrets are
