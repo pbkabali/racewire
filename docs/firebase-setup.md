@@ -465,10 +465,32 @@ limit.
 **`HTTP Error: 403, Permission denied`** — the service account is missing a
 role from step 6. Functions v2 in particular needs Artifact Registry Writer.
 
-**Functions deploy fails on first run** — the project needs the Cloud Build and
-Artifact Registry APIs enabled. Deploying once from your own machine
-(`npx firebase-tools deploy --only functions`) prompts to enable them; after
-that CI works.
+**`Cloud Functions deployment requires the Cloud Build API to be enabled. The
+current credentials do not have permission to enable APIs`** — expected on the
+first CI deploy of a project, and it aborts the whole command, so hosting and
+rules do not deploy either.
+
+Cloud Functions v2 needs several APIs that a brand-new project does not have on.
+The CLI tries to enable them, but `github-deployer` deliberately lacks the
+`Service Usage Admin` role needed to do that — you do not want CI able to turn
+on arbitrary billable APIs.
+
+Enable them once per project, as the project owner:
+
+```bash
+npx firebase-tools deploy --only functions --project staging
+```
+
+Your own account is an owner, so the CLI enables the APIs and completes the
+deploy. Afterwards CI can deploy functions on its own, because the APIs are
+already on. Repeat with `--project production`.
+
+If you would rather click, enable these in the Cloud console API library for
+each project — `cloudbuild`, `cloudfunctions`, `artifactregistry`, `run`,
+`eventarc`, `pubsub`.
+
+The alternative — granting `github-deployer` the `Service Usage Admin` role —
+works but widens CI's blast radius permanently to fix a one-time setup step.
 
 **Board shows an error instead of notices** — the composite index is missing.
 Run step 4.
