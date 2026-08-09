@@ -11,7 +11,7 @@
       "source": "functions",
       "codebase": "default",
       "runtime": "nodejs22",
-      "ignore": ["node_modules", ".git", "*.local", "**/*.test.ts"],
+      "ignore": ["node_modules", ".git", "*.local", "**/*.test.ts", "scripts"],
       "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"]
     }
   ],

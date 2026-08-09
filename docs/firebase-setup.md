@@ -207,28 +207,10 @@ and cannot carry comments:
 
 ---
 
-## 5. Create the first admin
+## 5. Service account
 
-`grantAdmin` requires an existing admin, so the first one has to be granted out
-of band.
-
-1. Console → Authentication → Users → **Add user** (your email + a password).
-2. Copy the resulting **User UID**.
-3. Grant the claim:
-
-```bash
-npx firebase-tools functions:shell --project staging
-# then, at the prompt:
-> require('firebase-admin').auth().setCustomUserClaims('<UID>', { admin: true })
-```
-
-Sign out and back in in the app — custom claims only refresh on a new ID token.
-
----
-
-## 6. Service account for CI
-
-GitHub Actions needs credentials that are not your personal login.
+Needed by CI, and by step 6 — so create it before trying to grant yourself
+admin.
 
 Per project, in the [Google Cloud console](https://console.cloud.google.com/iam-admin/serviceaccounts):
 
@@ -238,11 +220,41 @@ Per project, in the [Google Cloud console](https://console.cloud.google.com/iam-
    - `Cloud Functions Admin` — deploy functions
    - `Service Account User` — lets it act as the functions runtime account
    - `Artifact Registry Writer` — functions v2 builds push a container image
+   - `Firebase Authentication Admin` — required by step 6 to set custom claims
 3. Keys → **Add key** → JSON → download.
 
 That JSON is a real credential. It is matched by the `*serviceAccount*.json` and
 `*-firebase-adminsdk-*.json` patterns in `.gitignore`, but do not keep it in the
-repo directory at all — paste it into GitHub and delete the file.
+repo directory at all. Put it somewhere outside the project, e.g.
+`~/.secrets/racewire-staging-sa.json`, and delete it once it is in GitHub.
+
+---
+
+## 6. Create the first admin
+
+Admin access is a custom claim on the user, not a Firestore document. The
+deployed `grantAdmin` callable requires you to already be an admin, so the first
+one has to be set out of band.
+
+1. Console → **Authentication** → Users → **Add user** (your email + a password).
+2. Grant the claim:
+
+```bash
+cd functions
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-staging-sa.json \
+  node scripts/grant-admin.mjs you@example.com
+```
+
+Takes an email or a UID. `--revoke` takes the claim away again.
+
+Then **sign out and back in** in the app. Custom claims are baked into the ID
+token at sign-in, so an existing session keeps the old permissions until the
+token is reissued.
+
+> The obvious-looking `firebase functions:shell` route does **not** work for
+> this: its REPL resolves modules from `<repl>` rather than the functions
+> directory, so `require('firebase-admin')` throws `MODULE_NOT_FOUND`. Hence the
+> script.
 
 ---
 
@@ -371,6 +383,18 @@ it, and the resulting 403 names the API rather than the real problem. Check
 against `npx firebase-tools projects:list` and prefer `--project staging` /
 `--project production` over typing an ID. If the ID really is right, the link in
 the error does enable the API.
+
+**`functions/lib/index.js does not exist`** — the functions TypeScript has not
+been compiled. `firebase.json`'s `predeploy` hook builds on deploy, but
+`functions:shell` and the emulators do not run it:
+
+```bash
+npm --prefix functions run build
+```
+
+**`Cannot find module 'firebase-admin'` inside `functions:shell`** — expected;
+the REPL resolves modules from `<repl>`, not from `functions/`. Use
+`functions/scripts/grant-admin.mjs` (step 6) rather than the shell.
 
 **Renaming a project** — the Firebase CLI cannot do it; `projects:` only offers
 `create`, `addfirebase` and `list`. Change the *display name* in console →
