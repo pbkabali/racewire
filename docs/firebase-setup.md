@@ -499,6 +499,96 @@ would point at staging no matter where it is deployed.
 
 ---
 
+## 9. Custom domain (racewire.app, via Namecheap)
+
+Production only. Staging stays on `racewire-stg.web.app` — a custom domain there
+buys nothing.
+
+The app itself needs no changes: every URL in it is relative and the PWA
+manifest uses `start_url: '/'`, so it works under any origin.
+
+### 9a. Clear Namecheap's defaults first
+
+Namecheap → Domain List → **Manage** → **Advanced DNS**.
+
+A new domain ships with parking records that will fight Firebase. Delete:
+
+- the `CNAME` record for `www` pointing at `parkingpage.namecheap.com`
+- any **URL Redirect Record** on `@`
+
+Also confirm the **Nameservers** dropdown (Domain tab) is set to **Namecheap
+BasicDNS**. If it points at custom nameservers, the Advanced DNS tab is ignored
+entirely and nothing you add there takes effect.
+
+While setting up, set **TTL** to `1 min` on the records you add. You can raise it
+to Automatic once everything resolves; a 30-minute TTL turns every mistake into
+a 30-minute wait.
+
+### 9b. Add the domain in Firebase
+
+Firebase console → **`racewire-live`** → **Hosting** → **Add custom domain** →
+`racewire.app`. Tick "redirect to another domain" only if you want the apex to
+redirect; for this app, serve on the apex.
+
+Firebase gives you a **TXT record** for ownership. In Namecheap Advanced DNS →
+**Add New Record**:
+
+| Type | Host | Value |
+| --- | --- | --- |
+| TXT Record | `@` | the string Firebase shows |
+
+Back in Firebase, click **Verify**. This usually takes minutes; Namecheap
+propagates quickly with a low TTL.
+
+### 9c. Point the domain at Firebase
+
+After verification Firebase shows **two A records**. Use the values from *your*
+console — do not copy them from a blog post, they are not universal:
+
+| Type | Host | Value |
+| --- | --- | --- |
+| A Record | `@` | first IP from Firebase |
+| A Record | `@` | second IP from Firebase |
+
+Namecheap has no ALIAS/ANAME at the apex, which is why Firebase issues A records
+rather than a CNAME.
+
+For `www`, add it as a **second custom domain** in Firebase (`www.racewire.app`)
+and set it to redirect to the apex. Firebase then tells you to add:
+
+| Type | Host | Value |
+| --- | --- | --- |
+| CNAME | `www` | the target Firebase shows |
+
+### 9d. Add the domain to Auth — do not skip this
+
+Firebase console → **Authentication** → **Settings** → **Authorized domains** →
+**Add domain** → `racewire.app` (and `www.racewire.app` if used).
+
+Miss it and the site loads fine but **admin sign-in fails** with
+`auth/unauthorized-domain`. The board works, so it looks healthy until an
+organiser tries to log in — which is exactly when you least want to find out.
+
+### 9e. Expect a certificate wait — and a scary-looking gap
+
+`.app` is an **HSTS-preloaded TLD**: browsers refuse plain HTTP to it, always.
+So between DNS resolving and Firebase issuing your certificate, `racewire.app`
+does not show a "not found" page — it shows a **security warning**. That is
+normal and not a misconfiguration.
+
+Provisioning is usually under an hour and can take up to 24. `racewire-live.web.app`
+keeps serving throughout, so there is no outage; just do not print the custom
+domain on anything until you have loaded it yourself.
+
+Check progress:
+
+```bash
+dig +short racewire.app
+curl -sI https://racewire.app | head -3
+```
+
+---
+
 ## Deleting a project
 
 There is no CLI command — `firebase projects:` offers only `create`,
