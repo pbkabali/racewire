@@ -323,6 +323,31 @@ Then **sign out and back in** in the app. Custom claims are baked into the ID
 token at sign-in, so an existing session keeps the old permissions until the
 token is reissued.
 
+### Do this once per project
+
+Auth users are per-project. The same email in staging and production are two
+unrelated accounts with separate UIDs, and a claim granted on one means nothing
+on the other. So when you set up production, repeat both parts against it:
+
+1. Console → **switch to the production project** → Authentication → Users →
+   Add user.
+2. Run the script with **production's** Admin SDK key:
+
+```bash
+cd functions
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-prod-adminsdk.json \
+  node scripts/grant-admin.mjs you@example.com
+```
+
+Note there is no `--project` flag — **the key file alone decides which project
+is modified.** The script prints the project it resolved from the key before
+doing anything, so check that line matches what you intended:
+
+```
+Project:  racewire-prod
+Action:   GRANT admin to you@example.com
+```
+
 > The obvious-looking `firebase functions:shell` route does **not** work for
 > this: its REPL resolves modules from `<repl>` rather than the functions
 > directory, so `require('firebase-admin')` throws `MODULE_NOT_FOUND`. Hence the
