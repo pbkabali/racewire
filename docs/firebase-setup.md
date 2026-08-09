@@ -88,6 +88,14 @@ npx firebase-tools deploy \
   --project racewire-staging
 ```
 
+The two composite indexes, since `firestore.indexes.json` is schema-validated
+and cannot carry comments:
+
+| Index | Serves |
+| --- | --- |
+| `notices` — `pinned` desc, `publishedAt` desc | the main board query in `useNotices()` |
+| `notices` — `raceId` asc, `publishedAt` desc | notices filtered to a single race |
+
 ---
 
 ## 5. Create the first admin
@@ -213,6 +221,23 @@ would point at staging no matter where it is deployed.
 ---
 
 ## Troubleshooting
+
+**`Failed to add Firebase to Google Cloud Platform project`, with a 403
+`PERMISSION_DENIED` on `:addFirebase` in `firebase-debug.log`** — the GCP
+project was created but Firebase could not be attached. On an account that has
+never used Firebase before, this is the Firebase Terms of Service never having
+been accepted and the Firebase Management API never having been enabled;
+neither is something the CLI can do. Retrying `projects:addfirebase` will keep
+failing.
+
+Fix it in the browser: [console.firebase.google.com](https://console.firebase.google.com)
+→ **Create a project** → in the name box, open the dropdown and select the
+**existing** Cloud project → accept the terms → finish. It is per-account, so
+once one project has been through the console, the CLI works for the rest.
+
+Check `npx firebase-tools projects:list` first — if it says "No projects found"
+while a Cloud project clearly exists, this is the cause rather than a quota
+limit.
 
 **`HTTP Error: 403, Permission denied`** — the service account is missing a
 role from step 6. Functions v2 in particular needs Artifact Registry Writer.
