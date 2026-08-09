@@ -1,7 +1,7 @@
 {
   "projects": {
-    "default": "racewire-staging",
-    "staging": "racewire-staging",
+    "default": "racewire-staging-eda04",
+    "staging": "racewire-staging-eda04",
     "production": "racewire-prod"
   }
 }

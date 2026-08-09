@@ -26,8 +26,22 @@ the blast radius.
 
 ## 1. Create the two projects
 
-Project IDs are globally unique, so `racewire-staging` may be taken. If you pick
-different IDs, update `.firebaserc` to match.
+**Project IDs are permanent and globally unique.** Two consequences worth
+understanding before you click anything:
+
+- The console usually appends a random suffix (`racewire-prod-eda04`) rather
+  than granting the bare name. **The ID cannot be changed afterwards** — only
+  the display name can. The ID is also your default hosting domain
+  (`<project-id>.web.app`), so a suffixed production ID is user-visible unless
+  you attach a custom domain.
+- A deleted project does not release its ID for reuse. If you want a clean ID
+  you must pick a different one, not delete and retry.
+
+If you care about the production URL, either accept the suffix and plan on a
+custom domain, or choose an ID distinctive enough to be granted outright.
+
+Whatever IDs you end up with, put them in `.firebaserc` — the aliases there are
+what `--project staging` and `--project production` resolve to.
 
 ```bash
 npx firebase-tools login          # opens a browser
@@ -249,6 +263,16 @@ that CI works.
 
 **Board shows an error instead of notices** — the composite index is missing.
 Run step 4.
+
+**Renaming a project** — the Firebase CLI cannot do it; `projects:` only offers
+`create`, `addfirebase` and `list`. Change the *display name* in console →
+Project settings → pencil icon. The *project ID* can never be changed.
+
+**Console created a new project instead of attaching to an existing Cloud
+project** — check `npx firebase-tools projects:list` and compare the ID against
+what you expected. If it gained a suffix, the console made a fresh project and
+your original bare Cloud project is now an unused orphan. Update `.firebaserc`
+to the real ID, and delete the orphan in the Cloud console to avoid confusion.
 
 **Admin login succeeds but `/admin` says not authorised** — the claim is set but
 the ID token predates it. Sign out and back in.
