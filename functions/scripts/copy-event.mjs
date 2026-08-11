@@ -234,7 +234,11 @@ if (dryRun) {
 
 if (!dryRun) {
   console.log(
-    '\nAdmin access does NOT carry across projects. Grant it separately:\n' +
-      `  node scripts/grant-admin.mjs <email> --event ${code}   (with the destination key)`,
+    '\nWho can administer this event at the destination:\n' +
+      '  - anyone with superAdmin there already can, including for this event.\n' +
+      '    superAdmin covers every event, so it is granted once per project,\n' +
+      '    not once per copy.\n' +
+      '  - to give a specific organiser access to just this event:\n' +
+      `      node scripts/grant-admin.mjs <email> --event ${code}   (destination key)`,
   )
 }

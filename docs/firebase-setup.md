@@ -563,8 +563,11 @@ re-uploaded to the destination bucket and the URLs rewritten.
 Two things it deliberately does **not** do:
 
 - **Admin access does not travel.** Claims live on Auth users, which are
-  per-project. Grant it separately with `grant-admin.mjs` and the destination
-  key.
+  per-project, so a copy grants nobody anything at the destination. A
+  **superAdmin there already covers it** — that is granted once per project and
+  applies to every event, including ones created later. Only a per-event
+  organiser needs `grant-admin.mjs ... --event <CODE>`, and only once for that
+  event.
 - **`--overwrite` replaces documents by id; it does not delete.** Anything the
   destination has that the source lacks survives, so this cannot be used to
   make production an exact mirror.
