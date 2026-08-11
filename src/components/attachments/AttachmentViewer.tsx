@@ -62,8 +62,14 @@ export function AttachmentViewer({
         </button>
       </header>
 
+      {/* min-h-0 lets the flex child actually shrink; without it the PDF
+          viewer's own scroller can never be shorter than its content, and the
+          overlay grows instead of scrolling. Images scroll here, PDFs scroll
+          internally, so only one scrollbar exists either way. */}
       <div
-        className="flex-1 overflow-auto p-4"
+        className={`min-h-0 flex-1 p-4 ${
+          attachment.kind === 'image' ? 'overflow-auto' : 'overflow-hidden'
+        }`}
         onClick={(event) => event.stopPropagation()}
       >
         {attachment.kind === 'image' ? (
