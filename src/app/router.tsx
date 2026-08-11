@@ -2,49 +2,55 @@ import { Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 
 import { Loading } from '../components/Loading'
-import { AppShell } from '../components/layout/AppShell'
-import { AlertsPage } from '../features/alerts/AlertsPage'
+import { DocumentsPage } from '../features/documents/DocumentsPage'
+import { EventLayout } from '../features/events/EventLayout'
+import { EventPickerPage } from '../features/events/EventPickerPage'
 import { NoticesPage } from '../features/notices/NoticesPage'
 import { SchedulePage } from '../features/races/SchedulePage'
-import { AdminDashboard, LoginPage } from './lazyPages'
+import { ResultsPage } from '../features/results/ResultsPage'
+import { AdminEventDashboard, AdminEventList, LoginPage } from './lazyPages'
 import { ProtectedRoute } from './ProtectedRoute'
 
+const lazy = (element: React.ReactNode) => (
+  <Suspense fallback={<Loading />}>{element}</Suspense>
+)
+
 export const router = createBrowserRouter([
+  // Landing: pick an event. Everything public hangs off /e/:code.
+  { path: '/', element: <EventPickerPage /> },
+
   {
-    element: <AppShell />,
+    // The /e/ prefix permanently reserves the root namespace, so an event code
+    // can never collide with /admin or any future top-level route.
+    path: '/e/:code',
+    element: <EventLayout />,
     children: [
-      { path: '/', element: <NoticesPage /> },
-      { path: '/schedule', element: <SchedulePage /> },
-      { path: '/alerts', element: <AlertsPage /> },
+      { index: true, element: <NoticesPage /> },
+      { path: 'schedule', element: <SchedulePage /> },
+      { path: 'docs', element: <DocumentsPage /> },
+      { path: 'results', element: <ResultsPage /> },
     ],
   },
-  {
-    path: '/admin/login',
-    element: (
-      <Suspense fallback={<Loading />}>
-        <LoginPage />
-      </Suspense>
-    ),
-  },
+
+  { path: '/admin/login', element: lazy(<LoginPage />) },
+
   {
     element: <ProtectedRoute />,
     children: [
-      {
-        path: '/admin',
-        element: (
-          <Suspense fallback={<Loading />}>
-            <AdminDashboard />
-          </Suspense>
-        ),
-      },
+      { path: '/admin', element: lazy(<AdminEventList />) },
+      { path: '/admin/e/:code', element: lazy(<AdminEventDashboard />) },
     ],
   },
+
   {
     path: '*',
     element: (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-2 bg-bg">
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-2 bg-bg px-6 text-center">
         <p className="text-3xl font-bold text-accent-text">404</p>
         <p className="text-sm text-fg-muted">That page does not exist.</p>
+        <a href="/" className="mt-2 text-sm font-semibold text-accent-text underline">
+          Choose an event
+        </a>
       </div>
     ),
   },

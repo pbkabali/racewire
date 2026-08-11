@@ -31,10 +31,32 @@ if (useEmulators) {
   connectFirestoreEmulator(db, '127.0.0.1', 8080)
 }
 
-/** Firestore collection names, centralised so they are not stringly-typed at call sites. */
+/**
+ * Firestore paths.
+ *
+ * Everything an event owns lives in a subcollection under it. That is what lets
+ * a security rule scope to a single event by path -- `match /events/{eventId}/…`
+ * -- so a query can never accidentally return another event's data. The
+ * alternative, a flat collection with an eventId field, relies on every query
+ * and every rule remembering to filter, and fails silently when one forgets.
+ */
 export const collections = {
+  events: 'events',
+  /** Global, not per-event: a push token belongs to a device, not an event. */
+  subscribers: 'subscribers',
+} as const
+
+/** Subcollections beneath `events/{code}`. */
+export const eventCollections = {
   notices: 'notices',
   races: 'races',
-  subscribers: 'subscribers',
-  admins: 'admins',
+  documents: 'documents',
+  folders: 'folders',
 } as const
+
+type EventCollection = (typeof eventCollections)[keyof typeof eventCollections]
+
+/** `events/KRC26/documents` — built here so the path shape lives in one place. */
+export function eventPath(eventCode: string, sub: EventCollection): string {
+  return `${collections.events}/${eventCode}/${sub}`
+}

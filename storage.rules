@@ -1,34 +1,51 @@
 rules_version = '2';
 
-// Attachments on the noticeboard.
-//   - Public read: spectators must see a course map or a red-flag photo without
-//     signing in, matching the read model in firestore.rules.
-//   - Admin-only write, with type and size enforced HERE as well as in the
-//     client. The client checks are for feedback; these are the real limit,
-//     since anyone can call the Storage API directly.
+/*
+ * Attachments, event documents and event logos.
+ *
+ * Storage rules see the same custom claims as Firestore rules, so per-event
+ * admin is enforced identically here. The client-side checks in
+ * src/lib/firebase/storage.ts are for feedback only — anyone can call the
+ * Storage API directly, so type and size limits have to hold here too.
+ */
 service firebase.storage {
   match /b/{bucket}/o {
 
-    function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.superAdmin == true;
+    }
+
+    function manages(eventId) {
+      return isSuperAdmin() || (
+        request.auth != null &&
+        request.auth.token.events is list &&
+        eventId in request.auth.token.events
+      );
     }
 
     function isAllowedType() {
-      return request.resource.contentType.matches('image/(jpeg|png|webp|gif)')
-        || request.resource.contentType == 'application/pdf';
+      return request.resource.contentType.matches('image/.*')
+          || request.resource.contentType == 'application/pdf';
     }
 
-    function isUnderSizeLimit() {
-      return request.resource.size <= 15 * 1024 * 1024;
+    function withinSizeLimit() {
+      return request.resource.size < 15 * 1024 * 1024;
     }
 
+    // Event-owned files: documents and branding.
+    // Public read — a spectator downloading a bulletin is never signed in.
+    match /events/{eventId}/{folder}/{fileName} {
+      allow read: if true;
+      allow write: if manages(eventId) && isAllowedType() && withinSizeLimit();
+    }
+
+    // Notice attachments, written before an event scoping existed on this path.
+    // Any event admin may write here; tightening it would break existing links.
     match /notices/{fileName} {
       allow read: if true;
-      allow create, update: if isAdmin() && isAllowedType() && isUnderSizeLimit();
-      allow delete: if isAdmin();
+      allow write: if request.auth != null && isAllowedType() && withinSizeLimit();
     }
 
-    // Everything outside /notices is closed.
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -499,6 +499,156 @@ would point at staging no matter where it is deployed.
 
 ---
 
+## Copying an event to another project
+
+Promote an event you have set up and checked on staging:
+
+```bash
+cd functions
+node scripts/copy-event.mjs UMC2026 \
+  --from ~/.secrets/racewire-stg-firebase-adminsdk-<id>.json \
+  --to   ~/.secrets/racewire-live-firebase-adminsdk-<id>.json \
+  --dry-run
+```
+
+`--dry-run` first, always — it reports exactly what would be written and
+changes nothing. Drop the flag to do it.
+
+It copies the event document, its notices, races, folders and documents, **and
+the Storage objects those documents point at**. That last part matters: a
+document's `fileUrl` points at the source bucket, so a Firestore-only copy
+leaves production serving files out of staging. It works until staging is
+deleted or its rules change, and then every document 404s at once. Files are
+re-uploaded to the destination bucket and the URLs rewritten.
+
+| Flag | Effect |
+| --- | --- |
+| `--dry-run` | report only, write nothing |
+| `--overwrite` | replace an event that already exists at the destination |
+| `--no-files` | Firestore only, leaving URLs pointed at the source |
+
+Two things it deliberately does **not** do:
+
+- **Admin access does not travel.** Claims live on Auth users, which are
+  per-project. Grant it separately with `grant-admin.mjs` and the destination
+  key.
+- **`--overwrite` replaces documents by id; it does not delete.** Anything the
+  destination has that the source lacks survives, so this cannot be used to
+  make production an exact mirror.
+
+---
+
+## Storage CORS — required before any PDF will open
+
+**Do this once per project.** A new bucket has no CORS configuration, and a
+Firebase Storage download URL returns no `Access-Control-Allow-Origin` header
+without one.
+
+The failure is confusing because most things still work. A browser navigating
+to the URL downloads it fine, and `<img>` renders images normally — neither
+needs CORS. But anything reading the bytes with `fetch()` is blocked:
+
+- the PDF viewer (pdf.js renders from an ArrayBuffer) → *"Could not display this
+  PDF: Failed to fetch"*
+- the Download button (fetches a blob so the app is not navigated away)
+
+```bash
+cd functions
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-stg-<deployer>.json \
+  node scripts/set-storage-cors.mjs
+```
+
+Use the **`github-deployer`** key — it has `storage.buckets.update` through
+Firebase Admin. The Admin SDK key does not. Repeat with the production key.
+
+Verify:
+
+```bash
+curl -sI -H "Origin: https://example.com" "<a file download URL>" | grep -i access-control
+```
+
+`access-control-allow-origin: *` means it worked. The policy allows `GET`/`HEAD`
+from any origin, which grants nothing new — these objects are already public by
+the Storage rules, and CORS only decides whether JavaScript may read a response
+it could already fetch by other means. Naming specific origins would also break
+Hosting preview channels, whose URLs are generated per pull request.
+
+---
+
+## Creating events and admins
+
+Two roles, deliberately different:
+
+| Role | Claim | Can |
+| --- | --- | --- |
+| Super admin | `{ superAdmin: true }` | create and delete events, manage every event |
+| Event admin | `{ admin: true, events: ['KRC26'] }` | manage only the listed events |
+
+Creating an event provisions a namespace that other people get access to, so it
+stays a super-admin action. An organiser in one country cannot post to another
+country's event.
+
+### 1. Make yourself a super admin
+
+Only needed once per project. The Auth user must exist first —
+console → **Authentication** → Users → **Add user**.
+
+```bash
+cd functions
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-stg-firebase-adminsdk-fbsvc-<id>.json \
+  node scripts/grant-admin.mjs you@example.com --super
+```
+
+Use the **`firebase-adminsdk-…`** key, not the `github-deployer` one — the
+deployer has no Authentication permissions. The script prints which project it
+resolved from the key before acting; check that line.
+
+Then sign in to the app at **`/admin/login`** — the app's own login page, not the
+Firebase console. Use the email and password you set when adding the user.
+
+If you were *already* signed in when the claim was granted, sign out first
+(**`/admin`** → Sign out) and back in. Firebase issues an ID token at sign-in
+carrying a snapshot of your claims, cached for about an hour; granting a claim
+afterwards cannot reach back into a token that has already been issued. If you
+have never signed in, there is nothing to do — your first token has it.
+
+### 2. Create the event
+
+Go to **`/admin`**. As a super admin you get a *Create an event* form:
+
+| Field | Notes |
+| --- | --- |
+| Short code | Becomes the document id and the URL (`/e/KRC26`). **Permanent** — the form refuses a code that already exists, because saving over one would silently re-home every notice and document under it. |
+| Name, country, sport | Shown on the picker and the event header |
+| Status | `live` gets a pulsing badge and sorts to the top of the picker |
+| Dates | Same start and end for a single-day event |
+| Logo | Optional; the picker falls back to the first three letters of the code |
+
+The event appears at `/e/<CODE>` immediately.
+
+### 3. Give an organiser access to that event
+
+```bash
+cd functions
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-stg-firebase-adminsdk-fbsvc-<id>.json \
+  node scripts/grant-admin.mjs organiser@club.ke --event KRC26
+```
+
+`--event` repeats for several events. Grants **union** with what the user
+already has, so adding a second event does not revoke the first. `--revoke`
+removes all admin access.
+
+They then see only their events at `/admin`, and a **Manage** link on the event
+itself.
+
+### Production
+
+Identical, with the `racewire-live` Admin SDK key. Auth users are per-project:
+the same email on staging and production are unrelated accounts with different
+UIDs and independent claims, so this has to be done twice.
+
+---
+
 ## 9. Custom domain (racewire.app, via Namecheap)
 
 Production only. Staging stays on `racewire-stg.web.app` — a custom domain there

@@ -25,14 +25,43 @@ export function signOut() {
 }
 
 /**
- * Whether a signed-in user may reach admin routes.
+ * What a signed-in user is allowed to administer.
  *
- * Backed by a custom claim rather than a Firestore lookup: claims ride along in
- * the ID token, so this resolves offline and Firestore rules can enforce the
- * same check server-side. Set it with the `grantAdmin` callable in functions/.
+ * Backed by custom claims rather than a Firestore lookup: claims ride inside
+ * the ID token, so they resolve offline and Firestore and Storage rules can
+ * enforce exactly the same check server-side without a document read.
  */
-export async function isAdmin(user: User | null): Promise<boolean> {
-  if (!user) return false
-  const token = await user.getIdTokenResult()
-  return token.claims.admin === true
+export type AdminScope = {
+  /** May administer every event, including creating and deleting them. */
+  superAdmin: boolean
+  /** Event codes this user may administer. Empty for a non-admin. */
+  events: string[]
+}
+
+export const NO_ADMIN: AdminScope = { superAdmin: false, events: [] }
+
+export async function readAdminScope(user: User | null): Promise<AdminScope> {
+  if (!user) return NO_ADMIN
+
+  const { claims } = await user.getIdTokenResult()
+
+  // Defensive: claims are set by a script and could be malformed. A bad claim
+  // should mean "no access", never a crash that leaves the UI stuck loading.
+  const events = Array.isArray(claims.events)
+    ? claims.events.filter((e): e is string => typeof e === 'string')
+    : []
+
+  return { superAdmin: claims.superAdmin === true, events }
+}
+
+/** Whether this scope may administer a specific event. */
+export function canManageEvent(scope: AdminScope, eventCode: string | undefined): boolean {
+  if (scope.superAdmin) return true
+  if (!eventCode) return false
+  return scope.events.includes(eventCode)
+}
+
+/** Whether this scope may administer anything at all — gates the admin area. */
+export function isAnyAdmin(scope: AdminScope): boolean {
+  return scope.superAdmin || scope.events.length > 0
 }

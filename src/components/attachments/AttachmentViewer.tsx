@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 
 import { downloadAttachment, type Attachment } from '../../lib/firebase/storage'
+import { Spinner } from './PdfLoading'
 
 // pdf.js is heavy, so it loads only when a PDF is actually opened.
 const PdfViewer = lazy(() =>
@@ -62,8 +63,14 @@ export function AttachmentViewer({
         </button>
       </header>
 
+      {/* min-h-0 lets the flex child actually shrink; without it the PDF
+          viewer's own scroller can never be shorter than its content, and the
+          overlay grows instead of scrolling. Images scroll here, PDFs scroll
+          internally, so only one scrollbar exists either way. */}
       <div
-        className="flex-1 overflow-auto p-4"
+        className={`min-h-0 flex-1 p-4 ${
+          attachment.kind === 'image' ? 'overflow-auto' : 'overflow-hidden'
+        }`}
         onClick={(event) => event.stopPropagation()}
       >
         {attachment.kind === 'image' ? (
@@ -74,8 +81,13 @@ export function AttachmentViewer({
           />
         ) : (
           <Suspense
+            // Covers fetching the pdf.js chunk itself, which is the first wait
+            // and separate from downloading the document.
             fallback={
-              <p className="py-10 text-center text-sm text-white/70">Loading viewer…</p>
+              <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
+                <Spinner className="h-8 w-8" />
+                <p className="text-sm text-white/70">Preparing viewer…</p>
+              </div>
             }
           >
             <PdfViewer url={attachment.url} name={attachment.name} />

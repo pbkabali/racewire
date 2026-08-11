@@ -24,14 +24,32 @@ import { getAuth } from 'firebase-admin/auth'
 
 const args = process.argv.slice(2)
 const revoke = args.includes('--revoke')
+const superAdmin = args.includes('--super')
 const target = args.find((a) => !a.startsWith('--'))
+
+// --event may be repeated: --event KRC26 --event UGR26
+const events = args.flatMap((a, i) =>
+  a === '--event' && args[i + 1] && !args[i + 1].startsWith('--')
+    ? [args[i + 1].toUpperCase()]
+    : [],
+)
 
 if (!target) {
   console.error(`
 Usage:
   cd functions
   GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json \\
-    node scripts/grant-admin.mjs <email-or-uid> [--revoke]
+    node scripts/grant-admin.mjs <email-or-uid> [options]
+
+Options:
+  --event CODE    grant admin for one event; repeat for several
+  --super         grant super admin (every event, and may create events)
+  --revoke        remove all admin access
+
+Examples:
+  node scripts/grant-admin.mjs you@example.com --super
+  node scripts/grant-admin.mjs organiser@club.ke --event KRC26 --event UGR26
+  node scripts/grant-admin.mjs organiser@club.ke --revoke
 `)
   process.exit(1)
 }
@@ -67,8 +85,23 @@ if (!projectId) {
   process.exit(1)
 }
 
+const action = revoke
+  ? 'REVOKE all admin from'
+  : superAdmin
+    ? 'GRANT SUPER ADMIN to'
+    : `GRANT admin for ${events.join(', ')} to`
+
 console.log(`Project:  ${projectId}`)
-console.log(`Action:   ${revoke ? 'REVOKE admin from' : 'GRANT admin to'} ${target}\n`)
+console.log(`Action:   ${action} ${target}\n`)
+
+if (!revoke && !superAdmin && events.length === 0) {
+  console.error(
+    'Nothing to grant. Pass --super, or --event CODE (repeatable).\n' +
+      'Per-event access is the default so an organiser cannot post to another\n' +
+      "country's event by accident.",
+  )
+  process.exit(1)
+}
 
 initializeApp({ credential: applicationDefault(), projectId })
 
@@ -81,20 +114,38 @@ try {
     : await auth.getUser(target)
 
   const claims = { ...(user.customClaims ?? {}) }
+
   if (revoke) {
     delete claims.admin
+    delete claims.superAdmin
+    delete claims.events
+  } else if (superAdmin) {
+    claims.superAdmin = true
+    delete claims.events // implied by superAdmin; keeping both invites drift
   } else {
     claims.admin = true
+    // Union with any existing grants, so adding a second event does not
+    // silently revoke the first.
+    const existing = Array.isArray(claims.events) ? claims.events : []
+    claims.events = [...new Set([...existing, ...events])]
   }
 
   await auth.setCustomUserClaims(user.uid, claims)
 
+  const summary = revoke
+    ? 'Revoked all admin'
+    : superAdmin
+      ? 'Granted super admin'
+      : `Granted admin for ${claims.events.join(', ')}`
+
+  console.log(`${summary} — ${user.email ?? user.uid} (uid ${user.uid})`)
   console.log(
-    `${revoke ? 'Revoked' : 'Granted'} admin for ${user.email ?? user.uid} (uid ${user.uid})`,
-  )
-  console.log(
-    '\nThey must sign out and back in -- custom claims only appear in a freshly\n' +
-      'minted ID token, so an existing session keeps the old permissions.',
+    '\nIf they are already signed in to the app, they must sign out and back in:\n' +
+      '  /admin  -> Sign out       then       /admin/login\n' +
+      '\nNot the Firebase console -- the app itself. Firebase issues an ID token at\n' +
+      'sign-in carrying a snapshot of the claims, cached for about an hour, and\n' +
+      'granting a claim afterwards cannot reach back into a token already issued.\n' +
+      'If they have never signed in, nothing to do -- their first token has it.',
   )
 } catch (error) {
   const code = error?.errorInfo?.code ?? error?.code ?? ''
