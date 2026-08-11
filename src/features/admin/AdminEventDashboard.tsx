@@ -8,7 +8,7 @@ import { collections, db } from '../../lib/firebase/db'
 import { AdminDocumentsPanel } from '../documents/AdminDocumentsPanel'
 import { formatEventDates, type Event } from '../events/types'
 import { EventSharePanel } from './EventSharePanel'
-import { NoticeComposer } from './NoticeComposer'
+import { AdminNoticesPanel } from './AdminNoticesPanel'
 
 type Tab = 'notices' | 'documents' | 'share'
 
@@ -81,7 +81,7 @@ export function AdminEventDashboard() {
         ))}
       </div>
 
-      {tab === 'notices' && <NoticeComposer eventCode={eventCode} />}
+      {tab === 'notices' && <AdminNoticesPanel eventCode={eventCode} />}
       {tab === 'documents' && <AdminDocumentsPanel eventCode={eventCode} />}
       {tab === 'share' &&
         (event ? (
