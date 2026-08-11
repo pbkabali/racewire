@@ -499,6 +499,43 @@ would point at staging no matter where it is deployed.
 
 ---
 
+## Storage CORS — required before any PDF will open
+
+**Do this once per project.** A new bucket has no CORS configuration, and a
+Firebase Storage download URL returns no `Access-Control-Allow-Origin` header
+without one.
+
+The failure is confusing because most things still work. A browser navigating
+to the URL downloads it fine, and `<img>` renders images normally — neither
+needs CORS. But anything reading the bytes with `fetch()` is blocked:
+
+- the PDF viewer (pdf.js renders from an ArrayBuffer) → *"Could not display this
+  PDF: Failed to fetch"*
+- the Download button (fetches a blob so the app is not navigated away)
+
+```bash
+cd functions
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-stg-<deployer>.json \
+  node scripts/set-storage-cors.mjs
+```
+
+Use the **`github-deployer`** key — it has `storage.buckets.update` through
+Firebase Admin. The Admin SDK key does not. Repeat with the production key.
+
+Verify:
+
+```bash
+curl -sI -H "Origin: https://example.com" "<a file download URL>" | grep -i access-control
+```
+
+`access-control-allow-origin: *` means it worked. The policy allows `GET`/`HEAD`
+from any origin, which grants nothing new — these objects are already public by
+the Storage rules, and CORS only decides whether JavaScript may read a response
+it could already fetch by other means. Naming specific origins would also break
+Hosting preview channels, whose URLs are generated per pull request.
+
+---
+
 ## Creating events and admins
 
 Two roles, deliberately different:

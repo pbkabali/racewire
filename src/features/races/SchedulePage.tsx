@@ -40,7 +40,7 @@ export function SchedulePage() {
 
       {races.length === 0 ? (
         <p className="rounded-lg border border-edge bg-surface p-6 text-center text-sm text-fg-muted">
-          No races published yet.
+          To be published soon
         </p>
       ) : (
         <ul className="divide-y divide-edge overflow-hidden rounded-lg border border-edge bg-surface">
