@@ -725,16 +725,32 @@ propagates quickly with a low TTL.
 
 ### 9c. Point the domain at Firebase
 
-After verification Firebase shows **two A records**. Use the values from *your*
-console — do not copy them from a blog post, they are not universal:
+**Quick setup lists the A record alongside the TXT**, so you add both in one go
+and there is no separate step here — the console does not reveal the A record
+only after verifying. Older guides (including an earlier version of this one)
+describe a two-phase flow that no longer matches the UI.
+
+Use the value from *your* console; it is not universal, and Firebase currently
+issues a single A record rather than the pair older documentation mentions:
 
 | Type | Host | Value |
 | --- | --- | --- |
-| A Record | `@` | first IP from Firebase |
-| A Record | `@` | second IP from Firebase |
+| A Record | `@` | the IP Firebase shows |
 
-Namecheap has no ALIAS/ANAME at the apex, which is why Firebase issues A records
-rather than a CNAME.
+Namecheap has no ALIAS/ANAME at the apex, which is why Firebase issues an A
+record rather than a CNAME.
+
+Verification is not instant even once DNS is correct: Firebase caches its own
+lookups independently of your TTL, so "Records not yet detected" can persist for
+tens of minutes after `dig` shows everything published. Confirm with
+
+```bash
+dig +short A racewire.app @8.8.8.8
+dig +short TXT racewire.app @8.8.8.8
+```
+
+and if both are right, wait rather than changing anything. Re-adding correct
+records only restarts the clock.
 
 For `www`, add it as a **second custom domain** in Firebase (`www.racewire.app`)
 and set it to redirect to the apex. Firebase then tells you to add:
