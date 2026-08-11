@@ -1,7 +1,8 @@
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 
-import { collections, db } from '../../lib/firebase/db'
+import { db, eventCollections, eventPath } from '../../lib/firebase/db'
+import { useEvent } from '../events/useEvent'
 import type { Race } from '../notices/types'
 
 const statusStyles: Record<Race['status'], string> = {
@@ -16,14 +17,18 @@ const statusStyles: Record<Race['status'], string> = {
  * so organisers keep editing the spreadsheet they already use.
  */
 export function SchedulePage() {
+  const event = useEvent()
   const [races, setRaces] = useState<Race[] | null>(null)
 
   useEffect(() => {
-    const q = query(collection(db, collections.races), orderBy('startsAt', 'asc'))
+    const q = query(
+      collection(db, eventPath(event.code, eventCollections.races)),
+      orderBy('startsAt', 'asc'),
+    )
     return onSnapshot(q, (snap) => {
       setRaces(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Race))
     })
-  }, [])
+  }, [event.code])
 
   if (races === null) {
     return <div className="h-40 animate-pulse rounded-lg bg-surface" />

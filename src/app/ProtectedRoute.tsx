@@ -1,16 +1,17 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
 
+import { canManageEvent, isAnyAdmin } from '../lib/firebase/auth'
 import { useAuth } from './providers/useAuth'
 
 /**
- * Gate for the admin section.
+ * Gates the admin area.
  *
- * This is a usability boundary, not a security one -- anyone can read the
- * bundle and render these components. Firestore rules are what actually
- * protect the data; see firestore.rules, which checks the same `admin` claim.
+ * Convenience only — it hides UI, it does not protect data. Firestore and
+ * Storage rules check the same claims server-side; see firestore.rules.
  */
 export function ProtectedRoute() {
-  const { user, admin, loading } = useAuth()
+  const { user, scope, loading } = useAuth()
+  const { code } = useParams<{ code: string }>()
   const location = useLocation()
 
   if (loading) {
@@ -28,16 +29,32 @@ export function ProtectedRoute() {
     return <Navigate to="/admin/login" state={{ from: location.pathname }} replace />
   }
 
-  if (!admin) {
+  if (!isAnyAdmin(scope)) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-bg px-6 text-center">
-        <h1 className="text-xl font-bold text-danger-text">Not authorised</h1>
-        <p className="text-sm text-fg-muted">
-          This account is signed in but has no admin access.
-        </p>
-      </div>
+      <Denied detail="This account is signed in but has no admin access to any event." />
+    )
+  }
+
+  // On a per-event route, being an admin somewhere is not enough.
+  if (code && !canManageEvent(scope, code.toUpperCase())) {
+    return (
+      <Denied
+        detail={`This account cannot manage ${code.toUpperCase()}. Ask a super admin to grant access.`}
+      />
     )
   }
 
   return <Outlet />
+}
+
+function Denied({ detail }: { detail: string }) {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-bg px-6 text-center">
+      <h1 className="text-xl font-bold text-danger-text">Not authorised</h1>
+      <p className="max-w-sm text-sm text-fg-muted">{detail}</p>
+      <a href="/" className="mt-2 text-sm font-semibold text-accent-text underline">
+        Back to events
+      </a>
+    </div>
+  )
 }

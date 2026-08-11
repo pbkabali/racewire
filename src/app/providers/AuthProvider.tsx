@@ -1,13 +1,13 @@
 import { onAuthStateChanged } from 'firebase/auth'
 import { useEffect, useState, type ReactNode } from 'react'
 
-import { auth, isAdmin } from '../../lib/firebase/auth'
+import { auth, NO_ADMIN, readAdminScope } from '../../lib/firebase/auth'
 import { AuthContext, type AuthState } from './authContext'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
     user: null,
-    admin: false,
+    scope: NO_ADMIN,
     loading: true,
   })
 
@@ -21,18 +21,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const ticket = ++generation
 
       if (!user) {
-        setState({ user: null, admin: false, loading: false })
+        setState({ user: null, scope: NO_ADMIN, loading: false })
         return
       }
 
-      // Resolve the admin claim before reporting ready, so ProtectedRoute never
-      // sees a signed-in-but-claim-unknown state and bounces a real admin.
-      isAdmin(user)
-        .then((admin) => {
-          if (ticket === generation) setState({ user, admin, loading: false })
+      // Resolve claims before reporting ready, so ProtectedRoute never sees a
+      // signed-in-but-claims-unknown state and bounces a real admin.
+      readAdminScope(user)
+        .then((scope) => {
+          if (ticket === generation) setState({ user, scope, loading: false })
         })
         .catch(() => {
-          if (ticket === generation) setState({ user, admin: false, loading: false })
+          if (ticket === generation) setState({ user, scope: NO_ADMIN, loading: false })
         })
     })
 

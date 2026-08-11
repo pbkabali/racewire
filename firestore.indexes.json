@@ -7,14 +7,6 @@
         { "fieldPath": "pinned", "order": "DESCENDING" },
         { "fieldPath": "publishedAt", "order": "DESCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "notices",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "raceId", "order": "ASCENDING" },
-        { "fieldPath": "publishedAt", "order": "DESCENDING" }
-      ]
     }
   ],
   "fieldOverrides": []
