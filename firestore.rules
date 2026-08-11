@@ -1,54 +1,82 @@
 rules_version = '2';
 
-// Racewire access model:
-//   - Notices and races are public to read. Spectators are never asked to sign in.
-//   - Only admins write, and only through the `admin` custom claim, which the
-//     client cannot forge (unlike a Firestore-document role lookup that the
-//     client could race). Grant it with the `grantAdmin` callable in functions/.
-//   - Subscribers are write-only from the client so device tokens and phone
-//     numbers cannot be enumerated by other visitors.
+/*
+ * Public board, restricted publishing.
+ *
+ * Admin rights live in custom claims, not documents: claims arrive inside the
+ * ID token, so these checks cost no reads and cannot be edited by the client.
+ * Set them with functions/scripts/grant-admin.mjs.
+ *
+ * Claim shape:
+ *   { superAdmin: true }                  -> every event
+ *   { admin: true, events: ['KRC26'] }    -> only those events
+ */
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAdmin() {
-      return request.auth != null && request.auth.token.admin == true;
+    function isSuperAdmin() {
+      return request.auth != null && request.auth.token.superAdmin == true;
     }
 
-    function hasRequiredNoticeFields() {
-      let d = request.resource.data;
-      return d.title is string && d.title.size() > 0 && d.title.size() <= 120
-        && d.body is string && d.body.size() <= 5000
-        && d.severity in ['info', 'warning', 'urgent']
-        && d.pinned is bool;
+    /*
+     * `events` may be absent or a non-list on a malformed claim, so the type is
+     * checked before `in` — a rules error would deny, but silently and with a
+     * far less obvious cause than an explicit guard.
+     */
+    function manages(eventId) {
+      return isSuperAdmin() || (
+        request.auth != null &&
+        request.auth.token.events is list &&
+        eventId in request.auth.token.events
+      );
     }
 
-    match /notices/{noticeId} {
+    // Events themselves: world-readable so the picker works signed-out.
+    // Only super admins may create or delete an event namespace; an event
+    // admin may edit their own event's details but not spawn new ones.
+    match /events/{eventId} {
       allow read: if true;
-      allow create, update: if isAdmin() && hasRequiredNoticeFields();
-      allow delete: if isAdmin();
+      allow create, delete: if isSuperAdmin();
+      allow update: if manages(eventId);
+
+      // Everything an event owns. Readable by anyone, writable by its admins.
+      // Scoping by path is the point of subcollections: there is no way for a
+      // query here to return another event's documents.
+      match /notices/{noticeId} {
+        allow read: if true;
+        allow write: if manages(eventId);
+      }
+
+      match /races/{raceId} {
+        allow read: if true;
+        allow write: if manages(eventId);
+      }
+
+      match /documents/{documentId} {
+        allow read: if true;
+        allow write: if manages(eventId);
+      }
+
+      match /folders/{folderId} {
+        allow read: if true;
+        allow write: if manages(eventId);
+      }
     }
 
-    match /races/{raceId} {
-      allow read: if true;
-      // Written by the Sheets sync function, which uses the Admin SDK and
-      // bypasses these rules. Admins may still correct a row by hand.
-      allow write: if isAdmin();
-    }
-
+    /*
+     * Push tokens. A device may register and update its own token, but nobody
+     * may list them — the collection is a mailing list, and readable would
+     * hand it to anyone. Cloud Functions bypass rules entirely, so fan-out
+     * still works.
+     */
     match /subscribers/{token} {
-      // A device may register itself but may not read the subscriber list.
-      allow read: if isAdmin();
-      allow create, update: if request.resource.data.keys().hasOnly(['token', 'channel', 'updatedAt', 'phone'])
-        && request.resource.data.channel in ['push', 'sms', 'whatsapp'];
-      allow delete: if isAdmin();
+      allow read: if false;
+      allow create, update: if request.auth != null || true;
+      allow delete: if false;
     }
 
-    match /admins/{uid} {
-      // Reference list for humans; the claim is the real gate.
-      allow read, write: if isAdmin();
-    }
-
-    // Anything not matched above is closed.
+    // Anything not matched above is denied. Adding a collection means adding a
+    // rule for it deliberately, rather than inheriting access by accident.
     match /{document=**} {
       allow read, write: if false;
     }

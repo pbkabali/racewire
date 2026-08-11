@@ -3,10 +3,11 @@ import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../../app/providers/useAuth'
+import { isAnyAdmin } from '../../lib/firebase/auth'
 import { signIn } from '../../lib/firebase/auth'
 
 export function LoginPage() {
-  const { user, admin, loading } = useAuth()
+  const { user, scope, loading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [email, setEmail] = useState('')
@@ -15,7 +16,7 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false)
 
   // Already signed in as an admin: skip the form.
-  if (!loading && user && admin) {
+  if (!loading && user && isAnyAdmin(scope)) {
     const from = (location.state as { from?: string } | null)?.from ?? '/admin'
     return <Navigate to={from} replace />
   }

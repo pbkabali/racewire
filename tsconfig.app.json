@@ -23,6 +23,10 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  /* sw.ts is checked by tsconfig.worker.json against the WebWorker lib. */
-  "exclude": ["src/sw.ts"]
+  "exclude": [
+    /* sw.ts is checked by tsconfig.worker.json against the WebWorker lib. */
+    "src/sw.ts",
+    /* Archived features are kept for reference but never compiled or shipped. */
+    "src/features/_archived"
+  ]
 }

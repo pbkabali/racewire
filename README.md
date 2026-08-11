@@ -8,6 +8,16 @@ can post updates trackside even with no connection.
 
 ## Stack
 
+**Multi-event.** Every screen is scoped to an event. `/` is a picker; everything
+public lives under `/e/<CODE>/…`, where the code is the Firestore document id,
+the URL segment and the unique key all at once. The `/e/` prefix permanently
+reserves the root namespace so an event code can never collide with `/admin`.
+
+Event-owned data lives in subcollections (`events/{code}/documents`), so a
+security rule scopes to one event by path and a query cannot return another
+event's data. Admin rights are per-event custom claims — see
+`functions/scripts/grant-admin.mjs`.
+
 | Layer | Choice |
 | --- | --- |
 | App | React 19 + TypeScript, Vite 8 (SPA) |

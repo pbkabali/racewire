@@ -1,7 +1,7 @@
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 
-import { collections, db } from '../../lib/firebase/db'
+import { db, eventCollections, eventPath } from '../../lib/firebase/db'
 import type { Notice } from './types'
 
 export type NoticesState = {
@@ -16,7 +16,7 @@ export type NoticesState = {
   error: Error | null
 }
 
-export function useNotices(max = 100): NoticesState {
+export function useNotices(eventCode: string, max = 100): NoticesState {
   const [state, setState] = useState<NoticesState>({
     notices: [],
     loading: true,
@@ -26,7 +26,7 @@ export function useNotices(max = 100): NoticesState {
 
   useEffect(() => {
     const q = query(
-      collection(db, collections.notices),
+      collection(db, eventPath(eventCode, eventCollections.notices)),
       orderBy('pinned', 'desc'),
       orderBy('publishedAt', 'desc'),
       limit(max),
@@ -47,7 +47,7 @@ export function useNotices(max = 100): NoticesState {
       },
       (error) => setState((s) => ({ ...s, loading: false, error })),
     )
-  }, [max])
+  }, [eventCode, max])
 
   return state
 }

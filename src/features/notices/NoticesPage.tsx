@@ -1,8 +1,10 @@
+import { useEvent } from '../events/useEvent'
 import { NoticeCard } from './NoticeCard'
 import { useNotices } from './useNotices'
 
 export function NoticesPage() {
-  const { notices, loading, fromCache, error } = useNotices()
+  const event = useEvent()
+  const { notices, loading, fromCache, error } = useNotices(event.code)
 
   if (loading) {
     return <SkeletonList />

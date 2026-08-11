@@ -1,19 +1,16 @@
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
 
 import { useAuth } from '../../app/providers/useAuth'
 import { AttachmentUploader } from '../../components/attachments/AttachmentUploader'
-import { ThemeToggle } from '../../components/ThemeToggle'
-import { signOut } from '../../lib/firebase/auth'
-import { collections, db } from '../../lib/firebase/db'
+import { db, eventCollections, eventPath } from '../../lib/firebase/db'
 import type { Attachment } from '../../lib/firebase/storage'
 import { useOnlineStatus } from '../../lib/hooks/useOnlineStatus'
 import type { NoticeSeverity } from '../notices/types'
 
 const severities: NoticeSeverity[] = ['info', 'warning', 'urgent']
 
-export function AdminDashboard() {
+export function NoticeComposer({ eventCode }: { eventCode: string }) {
   const { user } = useAuth()
   const online = useOnlineStatus()
   const [title, setTitle] = useState('')
@@ -29,7 +26,7 @@ export function AdminDashboard() {
     // Deliberately not awaited. Offline, Firestore resolves this promise only
     // once the server acknowledges -- which could be hours. The local write
     // lands immediately and listeners update, so the UI should not block.
-    void addDoc(collection(db, collections.notices), {
+    void addDoc(collection(db, eventPath(eventCode, eventCollections.notices)), {
       title,
       body,
       severity,
@@ -50,27 +47,6 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-fg">Admin</h1>
-          <p className="text-xs text-fg-subtle">{user?.email}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <Link to="/" className="text-sm text-fg-muted hover:text-fg">
-            View board
-          </Link>
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="rounded-md border border-edge px-3 py-1.5 text-sm text-fg"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
-
       <form
         onSubmit={publish}
         className="space-y-4 rounded-lg border border-edge bg-surface p-4"
@@ -137,6 +113,5 @@ export function AdminDashboard() {
           </p>
         )}
       </form>
-    </div>
   )
 }
