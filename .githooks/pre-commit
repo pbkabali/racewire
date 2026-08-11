@@ -1,0 +1,38 @@
+#!/bin/sh
+# Refuse direct commits to main and staging.
+#
+# Those branches are deploy triggers: a push to staging deploys to
+# racewire-stg, a push to main deploys to racewire-live. Work belongs on a
+# feature branch off staging so it can be reviewed and verified before it
+# reaches either.
+#
+# Merges are allowed -- merging a feature branch in is exactly how work is
+# meant to arrive, and that commit legitimately lands on the target branch.
+#
+# Enabled by core.hooksPath, set by scripts/setup-hooks.sh. To bypass once,
+# knowingly: git commit --no-verify
+
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+case "$branch" in
+  main|staging)
+    # A merge in progress leaves MERGE_HEAD behind; let those through.
+    if [ -f "$(git rev-parse --git-dir)/MERGE_HEAD" ]; then
+      exit 0
+    fi
+
+    echo "✖ Direct commits to '$branch' are not allowed."
+    echo
+    echo "  '$branch' deploys on push. Put this on a feature branch instead:"
+    echo
+    echo "      git switch -c feature/<name> staging"
+    echo "      git add -A && git commit"
+    echo
+    echo "  then merge it back into staging when it is ready."
+    echo
+    echo "  Merges into '$branch' are allowed and unaffected by this."
+    exit 1
+    ;;
+esac
+
+exit 0
