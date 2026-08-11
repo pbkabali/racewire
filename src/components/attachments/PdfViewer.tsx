@@ -4,6 +4,8 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 
+import { PdfDownloading, PdfPagePlaceholder } from './PdfLoading'
+
 /*
  * pdf.js renders to canvas, which is the only approach that reliably works
  * in-app on mobile: iOS Safari and Chrome on Android routinely refuse to
@@ -23,6 +25,8 @@ export function PdfViewer({ url, name }: { url: string; name: string }) {
   const [visiblePage, setVisiblePage] = useState(1)
   const [width, setWidth] = useState(() => Math.min(window.innerWidth - 32, 900))
   const [error, setError] = useState<string | null>(null)
+  /** Null until the first progress event, and whenever total size is unknown. */
+  const [percent, setPercent] = useState<number | null>(null)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const pageRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -92,7 +96,12 @@ export function PdfViewer({ url, name }: { url: string; name: string }) {
           file={url}
           onLoadSuccess={({ numPages }) => setPages(numPages)}
           onLoadError={(cause) => setError(cause.message)}
-          loading={<div className="mx-auto h-96 w-full max-w-3xl animate-pulse rounded bg-white/10" />}
+          onLoadProgress={({ loaded, total }) =>
+            // Some responses carry no Content-Length; show indeterminate rather
+            // than a bar pinned at zero.
+            setPercent(total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : null)
+          }
+          loading={<PdfDownloading percent={percent} />}
           className="flex flex-col items-center gap-4 py-2"
         >
           {Array.from({ length: pages }, (_, index) => (
@@ -110,11 +119,12 @@ export function PdfViewer({ url, name }: { url: string; name: string }) {
                 renderTextLayer
                 renderAnnotationLayer
                 loading={
-                  <div
-                    className="animate-pulse rounded bg-white/10"
-                    // Roughly A4 so the placeholder does not collapse and make
-                    // the scroll position jump as pages resolve.
-                    style={{ width, height: width * 1.414 }}
+                  // Roughly A4 so the placeholder does not collapse and make
+                  // the scroll position jump as pages resolve.
+                  <PdfPagePlaceholder
+                    width={width}
+                    height={Math.round(width * 1.414)}
+                    pageNumber={index + 1}
                   />
                 }
               />
