@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 
+import { Brand } from '../../components/Brand'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { formatEventDates, type Event, type EventStatus } from './types'
 import { groupByStatus, STATUS_ORDER, useEvents } from './useEvents'
@@ -19,12 +20,7 @@ export function EventPickerPage() {
     <div className="min-h-dvh bg-bg">
       <header className="border-b border-edge bg-surface">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
-          <span className="flex items-center gap-2 text-lg font-bold tracking-tight">
-            <span className="h-5 w-1.5 rounded-sm bg-danger" aria-hidden />
-            <span className="text-fg">
-              race<span className="text-accent-text">wire</span>
-            </span>
-          </span>
+          <Brand />
           <div className="ml-auto">
             <ThemeToggle />
           </div>

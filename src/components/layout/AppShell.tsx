@@ -4,6 +4,7 @@ import { useAuth } from '../../app/providers/useAuth'
 import { formatEventDates } from '../../features/events/types'
 import { useEvent } from '../../features/events/useEvent'
 import { canManageEvent } from '../../lib/firebase/auth'
+import { Brand } from '../Brand'
 import { OfflineBanner } from '../OfflineBanner'
 import { ThemeToggle } from '../ThemeToggle'
 
@@ -31,12 +32,7 @@ export function AppShell() {
       <header className="border-b border-edge bg-surface">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
           <Link to="/" className="flex-none" aria-label="Choose a different event">
-            <span className="flex items-center gap-2 text-base font-bold tracking-tight">
-              <span className="h-5 w-1.5 rounded-sm bg-danger" aria-hidden />
-              <span className="text-fg">
-                race<span className="text-accent-text">wire</span>
-              </span>
-            </span>
+            <Brand creditFrom="sm" />
           </Link>
 
           <span className="mx-1 h-5 w-px flex-none bg-edge" aria-hidden />
