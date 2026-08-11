@@ -57,10 +57,13 @@ src/
   app/            router, route protection, auth provider
   components/     shared UI + layout shell
   features/
+    events/       event picker, event layout, shared event types
     notices/      the board itself
     races/        schedule, fed from Google Sheets
-    alerts/       notification opt-in
-    admin/        login + publishing (lazy-loaded)
+    documents/    public list + admin upload, single-level folders
+    results/      placeholder until timing integration
+    admin/        login, event list, per-event dashboard (lazy-loaded)
+    _archived/    parked features, excluded from the build
   lib/firebase/   app, auth, db, messaging
   sw.ts           service worker: precache + FCM background handler
 functions/
@@ -83,8 +86,18 @@ top bar from `sm` up. Safe-area insets are respected for notched devices.
 interface with three adapters. FCM works today. WhatsApp (Meta Cloud API) and
 SMS (Twilio) are written but inactive until their secrets are set — see below.
 
-**Protected admin.** `/admin` requires the `admin` custom claim. The client gate
-is only for usability; `firestore.rules` enforces the same claim server-side.
+**Protected admin.** Admin rights are per-event custom claims:
+`{ superAdmin: true }` for everything, or `{ admin: true, events: ['KRC26'] }`
+for named events. `ProtectedRoute` checks the claim covers the specific event in
+the URL, not merely that the user is an admin somewhere. That gate is for
+usability only — `firestore.rules` and `storage.rules` enforce the same claims
+server-side.
+
+**Documents.** Per event, grouped into single-level folders, each carrying a
+document number, name, date and optional note. Public to read and download,
+publishable only by that event's admins. Deleting removes the Storage object
+before the Firestore record: if that fails the document stays visible, which is
+recoverable, whereas the reverse orphans a file with nothing pointing at it.
 
 **Google Sheets.** `syncSheetScheduled` pulls the sheet every 15 minutes and
 `syncSheetNow` is a callable for on-demand refresh. Firestore stays the single
@@ -142,26 +155,30 @@ provisioned on the free Spark plan.
 
 ### Quick reference
 
-Not yet connected to a project. When you are ready:
-
 ```bash
-npm i -g firebase-tools
-firebase login
-firebase use --add                       # select or create the project
-firebase deploy --only firestore:rules,firestore:indexes,storage
+npx firebase-tools deploy \
+  --only hosting,firestore:rules,firestore:indexes,storage \
+  --project staging
 ```
 
 The `notices` list query sorts on `pinned` then `publishedAt`, so the composite
 index in `firestore.indexes.json` must be deployed or the board returns an error.
 
-### First admin
+### Admin access
 
-`grantAdmin` requires an existing admin, so bootstrap the first one out of band:
+Claims are set out of band; the deployed `grantAdmin` callable needs a caller
+who is already an admin.
 
 ```bash
-firebase functions:shell
-> getAuth().setCustomUserClaims('<uid>', { admin: true })
+cd functions
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-stg-adminsdk.json \
+  node scripts/grant-admin.mjs you@example.com --super
+  # or --event KRC26 --event UGR26 for a single organiser
 ```
+
+The key file alone decides which project is changed, so the script prints the
+project before acting. Claims only appear in a freshly minted ID token — sign
+out and back in.
 
 ### Messaging providers
 
@@ -173,8 +190,12 @@ firebase functions:secrets:set TWILIO_AUTH_TOKEN
 firebase functions:secrets:set TWILIO_FROM_NUMBER
 ```
 
-Each provider reports `isConfigured()` as false until its secrets exist, and
-dispatch simply skips it — nothing breaks while they are unset.
+Creating a secret is only half of it: it must also be added to
+`messagingSecrets` in `functions/src/index.ts` to be injected. That list is
+empty by default on purpose — a bound secret is a *deploy-time* dependency, so
+declaring one that does not exist fails the entire deploy, hosting and rules
+included. Until a channel is bound, its provider reports `isConfigured()` false
+and dispatch skips it.
 
 Note WhatsApp's 24-hour rule: business-initiated messages must use a template
 approved in Meta Business Manager (`racewire_alert`), not free text.
