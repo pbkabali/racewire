@@ -5,6 +5,7 @@ import {
   doc,
   serverTimestamp,
   Timestamp,
+  updateDoc,
 } from 'firebase/firestore'
 import { useRef, useState, type FormEvent } from 'react'
 
@@ -19,6 +20,7 @@ import {
 } from '../../lib/firebase/storage'
 import { useOnlineStatus } from '../../lib/hooks/useOnlineStatus'
 import type { EventDocument } from '../events/types'
+import { DocumentAdminRow, type DocumentEdits } from './DocumentAdminRow'
 import { groupDocuments, useDocuments } from './useDocuments'
 
 export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
@@ -132,6 +134,11 @@ export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
       // Already gone is fine; anything else surfaces when the doc delete fails.
     }
     await deleteDoc(doc(db, eventPath(eventCode, eventCollections.documents), document.id))
+  }
+
+  /** Metadata only: the stored file and its URL are deliberately untouched. */
+  async function saveEdits(id: string, edits: DocumentEdits) {
+    await updateDoc(doc(db, eventPath(eventCode, eventCollections.documents), id), edits)
   }
 
   const grouped = groupDocuments(documents, folders)
@@ -287,29 +294,13 @@ export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
               </h3>
               <ul>
                 {docs.map((document) => (
-                  <li
+                  <DocumentAdminRow
                     key={document.id}
-                    className="flex items-center gap-3 border-b border-edge px-3 py-2 last:border-b-0"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm text-fg">
-                      {document.documentNumber && (
-                        <span className="mr-2 font-mono text-xs text-accent-text">
-                          {document.documentNumber}
-                        </span>
-                      )}
-                      {document.name}
-                    </span>
-                    <span className="flex-none text-xs text-fg-subtle">
-                      {formatBytes(document.size)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void remove(document)}
-                      className="flex-none text-xs font-semibold text-danger-text"
-                    >
-                      Delete
-                    </button>
-                  </li>
+                    document={document}
+                    folders={folders}
+                    onSave={saveEdits}
+                    onDelete={(d) => void remove(d)}
+                  />
                 ))}
               </ul>
             </div>
