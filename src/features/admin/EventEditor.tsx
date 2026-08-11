@@ -1,20 +1,50 @@
-import { doc, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore'
+import { doc, serverTimestamp, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
 import { useState, type FormEvent } from 'react'
 
 import { collections, db } from '../../lib/firebase/db'
-import { uploadAttachment } from '../../lib/firebase/storage'
-import { EVENT_STATUSES, SPORT_TYPES, type EventStatus } from '../events/types'
+import { deleteAttachment, uploadAttachment } from '../../lib/firebase/storage'
+import {
+  EVENT_STATUSES,
+  SPORT_TYPES,
+  type Event,
+  type EventStatus,
+} from '../events/types'
 
-/** Create a new event. Super-admin only; rendered from AdminEventList. */
-export function EventEditor({ existingCodes }: { existingCodes: string[] }) {
-  const [code, setCode] = useState('')
-  const [name, setName] = useState('')
-  const [countryCode, setCountryCode] = useState('')
-  const [countryName, setCountryName] = useState('')
-  const [sportType, setSportType] = useState<string>(SPORT_TYPES[0])
-  const [status, setStatus] = useState<EventStatus>('upcoming')
-  const [startsOn, setStartsOn] = useState('')
-  const [endsOn, setEndsOn] = useState('')
+/** yyyy-mm-dd from local parts; toISOString() would shift across midnight. */
+function toDateInput(stamp: Timestamp | null | undefined): string {
+  if (!stamp) return ''
+  const d = stamp.toDate()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/**
+ * Create a new event, or edit an existing one.
+ *
+ * One component for both: the fields are identical apart from the code, which
+ * is permanent once set. A second form would drift out of step with this one.
+ *
+ * Creating is super-admin only (it provisions a namespace others get access
+ * to); editing is open to that event's admins.
+ */
+export function EventEditor({
+  existingCodes = [],
+  event,
+}: {
+  existingCodes?: string[]
+  /** Present to edit; absent to create. */
+  event?: Event
+}) {
+  const editing = Boolean(event)
+
+  const [code, setCode] = useState(event?.code ?? '')
+  const [name, setName] = useState(event?.name ?? '')
+  const [countryCode, setCountryCode] = useState(event?.countryCode ?? '')
+  const [countryName, setCountryName] = useState(event?.countryName ?? '')
+  const [sportType, setSportType] = useState<string>(event?.sportType ?? SPORT_TYPES[0])
+  const [status, setStatus] = useState<EventStatus>(event?.status ?? 'upcoming')
+  const [startsOn, setStartsOn] = useState(toDateInput(event?.startsOn))
+  const [endsOn, setEndsOn] = useState(toDateInput(event?.endsOn))
   const [logo, setLogo] = useState<File | null>(null)
 
   const [busy, setBusy] = useState(false)
@@ -26,31 +56,45 @@ export function EventEditor({ existingCodes }: { existingCodes: string[] }) {
   const normalisedCode = code.trim().toUpperCase().replace(/[^A-Z0-9-]/g, '')
   const codeTaken = existingCodes.includes(normalisedCode)
 
-  async function create(event: FormEvent) {
-    event.preventDefault()
+  async function submit(formEvent: FormEvent) {
+    formEvent.preventDefault()
     setError(null)
     setDone(null)
 
-    if (!normalisedCode) return setError('A short code is required.')
-    if (codeTaken) {
-      // setDoc would silently overwrite the existing event and everything under
-      // it would suddenly belong to a differently-named event.
-      return setError(`“${normalisedCode}” already exists. Pick another code.`)
+    if (!editing) {
+      if (!normalisedCode) return setError('A short code is required.')
+      if (codeTaken) {
+        // setDoc would silently overwrite the existing event, and everything
+        // under it would suddenly belong to a differently-named event.
+        return setError(`“${normalisedCode}” already exists. Pick another code.`)
+      }
     }
     if (!name.trim()) return setError('A name is required.')
 
+    const target = editing ? event!.code : normalisedCode
     setBusy(true)
     try {
-      let logoUrl = ''
-      let logoPath = ''
+      let logoUrl = event?.logoUrl ?? ''
+      let logoPath = event?.logoPath ?? ''
+
       if (logo) {
-        const uploaded = await uploadAttachment(logo, `events/${normalisedCode}/branding`).done
+        const uploaded = await uploadAttachment(logo, `events/${target}/branding`).done
+        const previousPath = logoPath
         logoUrl = uploaded.url
         logoPath = uploaded.path
+
+        // Remove the old file only once the new one is safely stored, so a
+        // failed upload never leaves the event with no logo at all.
+        if (previousPath && previousPath !== uploaded.path) {
+          try {
+            await deleteAttachment(previousPath)
+          } catch {
+            // An orphaned old logo is untidy, not broken.
+          }
+        }
       }
 
-      await setDoc(doc(db, collections.events, normalisedCode), {
-        code: normalisedCode,
+      const fields = {
         name: name.trim(),
         countryCode: countryCode.trim().toUpperCase(),
         countryName: countryName.trim(),
@@ -61,27 +105,39 @@ export function EventEditor({ existingCodes }: { existingCodes: string[] }) {
         // Local midnight, so the date shown matches the date typed.
         startsOn: startsOn ? Timestamp.fromDate(new Date(`${startsOn}T00:00:00`)) : null,
         endsOn: endsOn ? Timestamp.fromDate(new Date(`${endsOn}T00:00:00`)) : null,
-        createdAt: serverTimestamp(),
-      })
+      }
 
-      setDone(`Created ${normalisedCode}. Grant an organiser access with grant-admin.mjs.`)
-      setCode('')
-      setName('')
-      setCountryCode('')
-      setCountryName('')
-      setStartsOn('')
-      setEndsOn('')
-      setLogo(null)
+      if (editing) {
+        // updateDoc, not setDoc: setDoc would drop createdAt and any field a
+        // later version of the app adds but this form does not know about.
+        await updateDoc(doc(db, collections.events, target), fields)
+        setDone('Saved.')
+        setLogo(null)
+      } else {
+        await setDoc(doc(db, collections.events, target), {
+          ...fields,
+          code: target,
+          createdAt: serverTimestamp(),
+        })
+        setDone(`Created ${target}. Grant an organiser access with grant-admin.mjs.`)
+        setCode('')
+        setName('')
+        setCountryCode('')
+        setCountryName('')
+        setStartsOn('')
+        setEndsOn('')
+        setLogo(null)
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not create the event')
+      setError(cause instanceof Error ? cause.message : 'Could not save the event')
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <form onSubmit={create} className="space-y-3 rounded-lg border border-edge bg-surface p-4">
-      <h2 className="font-semibold text-fg">Create an event</h2>
+    <form onSubmit={submit} className="space-y-3 rounded-lg border border-edge bg-surface p-4">
+      <h2 className="font-semibold text-fg">{editing ? 'Event details' : 'Create an event'}</h2>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
@@ -90,13 +146,18 @@ export function EventEditor({ existingCodes }: { existingCodes: string[] }) {
           </span>
           <input
             required
+            readOnly={editing}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="KRC26"
-            className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 font-mono text-fg placeholder:text-fg-subtle"
+            className={`mt-1 w-full rounded-md border border-edge px-3 py-2 font-mono text-fg placeholder:text-fg-subtle ${
+              editing ? 'bg-surface-raised text-fg-muted' : 'bg-bg'
+            }`}
           />
           <span className="mt-1 block text-xs text-fg-subtle">
-            {normalisedCode ? (
+            {editing ? (
+              'Permanent — it is the URL and the document id'
+            ) : normalisedCode ? (
               codeTaken ? (
                 <span className="text-danger-text">“{normalisedCode}” is taken</span>
               ) : (
@@ -207,7 +268,7 @@ export function EventEditor({ existingCodes }: { existingCodes: string[] }) {
 
       <label className="block">
         <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-          Logo
+          {editing ? 'Replace logo' : 'Logo'}
         </span>
         <input
           type="file"
@@ -219,10 +280,10 @@ export function EventEditor({ existingCodes }: { existingCodes: string[] }) {
 
       <button
         type="submit"
-        disabled={busy || codeTaken}
+        disabled={busy || (!editing && codeTaken)}
         className="w-full rounded-md bg-accent py-2 font-bold text-accent-fg disabled:opacity-60"
       >
-        {busy ? 'Creating…' : 'Create event'}
+        {busy ? 'Saving…' : editing ? 'Save changes' : 'Create event'}
       </button>
 
       {error && (

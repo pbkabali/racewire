@@ -215,14 +215,30 @@ for (const name of SUBCOLLECTIONS) {
   console.log(`  ${name}: ${snapshot.size}`)
 }
 
-console.log(
-  `\n${dryRun ? 'Would write' : 'Wrote'} ${written} document(s) and ` +
-    `${fileMap.size} file(s) to ${toCreds.project_id}.`,
-)
+if (dryRun) {
+  // Said plainly at the end, not only in the header: the "would copy" lines
+  // above read exactly like success, and it is easy to walk away believing the
+  // copy happened.
+  console.log(
+    `\nDRY RUN — NOTHING WAS WRITTEN.\n` +
+      `Would have written ${written} document(s) and ${fileMap.size} file(s) ` +
+      `to ${toCreds.project_id}.\n\n` +
+      `Re-run without --dry-run to do it.`,
+  )
+} else {
+  console.log(
+    `\nWrote ${written} document(s) and ${fileMap.size} file(s) to ` +
+      `${toCreds.project_id}.`,
+  )
+}
 
 if (!dryRun) {
   console.log(
-    '\nAdmin access does NOT carry across projects. Grant it separately:\n' +
-      `  node scripts/grant-admin.mjs <email> --event ${code}   (with the destination key)`,
+    '\nWho can administer this event at the destination:\n' +
+      '  - anyone with superAdmin there already can, including for this event.\n' +
+      '    superAdmin covers every event, so it is granted once per project,\n' +
+      '    not once per copy.\n' +
+      '  - to give a specific organiser access to just this event:\n' +
+      `      node scripts/grant-admin.mjs <email> --event ${code}   (destination key)`,
   )
 }
