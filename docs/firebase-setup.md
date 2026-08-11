@@ -7,6 +7,39 @@ The repo already contains `firebase.json`, `firestore.rules`,
 `firestore.indexes.json`, `storage.rules` and the Cloud Functions — you are
 creating the projects those files deploy *into*, not writing any config.
 
+
+## Contents
+
+**One-time setup, in order.** Steps 0–9 take a project from nothing to
+deploying. Miss one and the failure is usually indirect — a 403 about an API, a
+PDF that will not open — so it is worth going in sequence.
+
+| | Step | Needed for |
+| --- | --- | --- |
+| 0 | [Billing](#0-before-you-start-billing) | Storage and Functions at all |
+| 1 | [Create the projects](#1-create-the-two-projects) | everything |
+| 2 | [Budget alert](#2-budget-alert) | peace of mind |
+| 3 | [Web app config](#3-register-the-web-app-and-collect-config) | the app connecting |
+| 4 | [Rules and indexes](#4-deploy-rules-and-indexes-once-by-hand) | the board not erroring |
+| 5 | [Service accounts](#5-service-accounts) | CI, and granting admin |
+| 6 | [First admin](#6-create-the-first-admin) | reaching /admin |
+| 7 | [GitHub environments](#7-github-environments) | auto-deploy |
+| 8 | [Messaging secrets](#8-messaging-secrets-optional-when-ready) | optional; SMS/WhatsApp |
+| ★ | [**Storage CORS**](#storage-cors--required-before-any-pdf-will-open) | **PDFs opening at all** |
+| 9 | [Custom domain](#9-custom-domain-racewireapp-via-namecheap) | optional; a URL you own |
+
+**Day to day**
+
+- [How the pipeline behaves](#how-the-pipeline-behaves)
+- [Creating events and admins](#creating-events-and-admins)
+- [Copying an event to another project](#copying-an-event-to-another-project) — promote staging to production
+- [Deleting a project](#deleting-a-project)
+- [Troubleshooting](#troubleshooting)
+
+Storage CORS is marked ★ rather than numbered because it is easy to reach the
+end of the numbered steps with a working deploy and a broken document viewer.
+A new bucket has no CORS policy, and nothing fails until someone opens a PDF.
+
 ---
 
 ## 0. Before you start: billing
