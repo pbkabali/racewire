@@ -21,6 +21,7 @@ import {
 import { useOnlineStatus } from '../../lib/hooks/useOnlineStatus'
 import type { EventDocument } from '../events/types'
 import { DocumentAdminRow, type DocumentEdits } from './DocumentAdminRow'
+import { FolderManager } from './FolderManager'
 import { groupDocuments, useDocuments } from './useDocuments'
 
 export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
@@ -276,6 +277,8 @@ export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
           Create
         </button>
       </form>
+
+      <FolderManager eventCode={eventCode} folders={folders} documents={documents} />
 
       <section>
         <h2 className="mb-2 font-semibold text-fg">Published documents</h2>
