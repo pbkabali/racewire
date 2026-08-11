@@ -140,8 +140,12 @@ try {
 
   console.log(`${summary} — ${user.email ?? user.uid} (uid ${user.uid})`)
   console.log(
-    '\nThey must sign out and back in -- custom claims only appear in a freshly\n' +
-      'minted ID token, so an existing session keeps the old permissions.',
+    '\nIf they are already signed in to the app, they must sign out and back in:\n' +
+      '  /admin  -> Sign out       then       /admin/login\n' +
+      '\nNot the Firebase console -- the app itself. Firebase issues an ID token at\n' +
+      'sign-in carrying a snapshot of the claims, cached for about an hour, and\n' +
+      'granting a claim afterwards cannot reach back into a token already issued.\n' +
+      'If they have never signed in, nothing to do -- their first token has it.',
   )
 } catch (error) {
   const code = error?.errorInfo?.code ?? error?.code ?? ''

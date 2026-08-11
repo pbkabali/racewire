@@ -527,8 +527,14 @@ Use the **`firebase-adminsdk-…`** key, not the `github-deployer` one — the
 deployer has no Authentication permissions. The script prints which project it
 resolved from the key before acting; check that line.
 
-Then **sign out and back in** in the app. Claims are baked into the ID token at
-sign-in, so an existing session keeps the old permissions.
+Then sign in to the app at **`/admin/login`** — the app's own login page, not the
+Firebase console. Use the email and password you set when adding the user.
+
+If you were *already* signed in when the claim was granted, sign out first
+(**`/admin`** → Sign out) and back in. Firebase issues an ID token at sign-in
+carrying a snapshot of your claims, cached for about an hour; granting a claim
+afterwards cannot reach back into a token that has already been issued. If you
+have never signed in, there is nothing to do — your first token has it.
 
 ### 2. Create the event
 
