@@ -752,12 +752,22 @@ dig +short TXT racewire.app @8.8.8.8
 and if both are right, wait rather than changing anything. Re-adding correct
 records only restarts the clock.
 
-For `www`, add it as a **second custom domain** in Firebase (`www.racewire.app`)
-and set it to redirect to the apex. Firebase then tells you to add:
+### Redirecting www to the apex
 
-| Type | Host | Value |
-| --- | --- | --- |
-| CNAME | `www` | the target Firebase shows |
+Add `www.racewire.app` as a **second custom domain** in Firebase and choose the
+**redirect** option targeting `racewire.app` — not "connect", which would serve
+the same site on both and split your URLs. Then add the record Firebase gives
+you with Host `www`.
+
+**Do not use Namecheap's URL Redirect Record for this.** It is the obvious
+option in Advanced DNS and it cannot work on a `.app` domain: `.app` is
+HSTS-preloaded, so browsers will only ever attempt HTTPS to `www.racewire.app`,
+and Namecheap's redirector has no valid certificate for your domain. The
+browser aborts on a certificate error before any redirect happens, so visitors
+see a security warning rather than being forwarded.
+
+Firebase issues a real certificate for `www` and serves a 301 to the apex,
+which is why it is the only route that works here.
 
 ### 9d. Add the domain to Auth — do not skip this
 
