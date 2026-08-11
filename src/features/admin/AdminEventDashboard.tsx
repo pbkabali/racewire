@@ -8,9 +8,10 @@ import { collections, db } from '../../lib/firebase/db'
 import { AdminDocumentsPanel } from '../documents/AdminDocumentsPanel'
 import { formatEventDates, type Event } from '../events/types'
 import { EventSharePanel } from './EventSharePanel'
-import { NoticeComposer } from './NoticeComposer'
+import { AdminNoticesPanel } from './AdminNoticesPanel'
+import { EventEditor } from './EventEditor'
 
-type Tab = 'notices' | 'documents' | 'share'
+type Tab = 'notices' | 'documents' | 'share' | 'settings'
 
 /**
  * Managing one event. Access is already checked by ProtectedRoute, which
@@ -64,7 +65,7 @@ export function AdminEventDashboard() {
       </header>
 
       <div role="tablist" className="flex gap-1 border-b border-edge">
-        {(['notices', 'documents', 'share'] as Tab[]).map((value) => (
+        {(['notices', 'documents', 'share', 'settings'] as Tab[]).map((value) => (
           <button
             key={value}
             role="tab"
@@ -81,11 +82,19 @@ export function AdminEventDashboard() {
         ))}
       </div>
 
-      {tab === 'notices' && <NoticeComposer eventCode={eventCode} />}
+      {tab === 'notices' && <AdminNoticesPanel eventCode={eventCode} />}
       {tab === 'documents' && <AdminDocumentsPanel eventCode={eventCode} />}
       {tab === 'share' &&
         (event ? (
           <EventSharePanel event={event} />
+        ) : (
+          <div className="h-64 animate-pulse rounded-lg bg-surface" />
+        ))}
+      {tab === 'settings' &&
+        (event ? (
+          // Keyed on the event so the form re-initialises from fresh data
+          // rather than holding the values it mounted with.
+          <EventEditor key={event.code} event={event} />
         ) : (
           <div className="h-64 animate-pulse rounded-lg bg-surface" />
         ))}

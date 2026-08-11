@@ -17,6 +17,12 @@ export type Notice = {
   raceId?: string
   /** Null while a locally-created notice waits for the server timestamp. */
   publishedAt: Timestamp | null
+  /**
+   * Set when a notice is edited after publishing. Surfaced on the card, because
+   * a notice that silently changes wording is worse than one openly corrected --
+   * people act on these.
+   */
+  updatedAt?: Timestamp | null
   pinned: boolean
   /** Images and PDFs. Absent on notices created before attachments existed. */
   attachments?: Attachment[]

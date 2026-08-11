@@ -37,7 +37,10 @@ export function NoticeCard({ notice }: { notice: Notice }) {
             Pinned
           </span>
         )}
-        <time className="ml-auto text-xs text-fg-subtle">{formatWhen(notice)}</time>
+        <time className="ml-auto text-xs text-fg-subtle">
+          {formatWhen(notice)}
+          {notice.updatedAt && <span title="This notice was edited after publishing"> · edited</span>}
+        </time>
       </div>
 
       <h2 className="text-base font-bold text-fg">{notice.title}</h2>
