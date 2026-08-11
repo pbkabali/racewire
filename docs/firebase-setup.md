@@ -499,6 +499,74 @@ would point at staging no matter where it is deployed.
 
 ---
 
+## Creating events and admins
+
+Two roles, deliberately different:
+
+| Role | Claim | Can |
+| --- | --- | --- |
+| Super admin | `{ superAdmin: true }` | create and delete events, manage every event |
+| Event admin | `{ admin: true, events: ['KRC26'] }` | manage only the listed events |
+
+Creating an event provisions a namespace that other people get access to, so it
+stays a super-admin action. An organiser in one country cannot post to another
+country's event.
+
+### 1. Make yourself a super admin
+
+Only needed once per project. The Auth user must exist first —
+console → **Authentication** → Users → **Add user**.
+
+```bash
+cd functions
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-stg-firebase-adminsdk-fbsvc-<id>.json \
+  node scripts/grant-admin.mjs you@example.com --super
+```
+
+Use the **`firebase-adminsdk-…`** key, not the `github-deployer` one — the
+deployer has no Authentication permissions. The script prints which project it
+resolved from the key before acting; check that line.
+
+Then **sign out and back in** in the app. Claims are baked into the ID token at
+sign-in, so an existing session keeps the old permissions.
+
+### 2. Create the event
+
+Go to **`/admin`**. As a super admin you get a *Create an event* form:
+
+| Field | Notes |
+| --- | --- |
+| Short code | Becomes the document id and the URL (`/e/KRC26`). **Permanent** — the form refuses a code that already exists, because saving over one would silently re-home every notice and document under it. |
+| Name, country, sport | Shown on the picker and the event header |
+| Status | `live` gets a pulsing badge and sorts to the top of the picker |
+| Dates | Same start and end for a single-day event |
+| Logo | Optional; the picker falls back to the first three letters of the code |
+
+The event appears at `/e/<CODE>` immediately.
+
+### 3. Give an organiser access to that event
+
+```bash
+cd functions
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-stg-firebase-adminsdk-fbsvc-<id>.json \
+  node scripts/grant-admin.mjs organiser@club.ke --event KRC26
+```
+
+`--event` repeats for several events. Grants **union** with what the user
+already has, so adding a second event does not revoke the first. `--revoke`
+removes all admin access.
+
+They then see only their events at `/admin`, and a **Manage** link on the event
+itself.
+
+### Production
+
+Identical, with the `racewire-live` Admin SDK key. Auth users are per-project:
+the same email on staging and production are unrelated accounts with different
+UIDs and independent claims, so this has to be done twice.
+
+---
+
 ## 9. Custom domain (racewire.app, via Namecheap)
 
 Production only. Staging stays on `racewire-stg.web.app` — a custom domain there
