@@ -7,9 +7,10 @@ import { signOut } from '../../lib/firebase/auth'
 import { collections, db } from '../../lib/firebase/db'
 import { AdminDocumentsPanel } from '../documents/AdminDocumentsPanel'
 import { formatEventDates, type Event } from '../events/types'
+import { EventSharePanel } from './EventSharePanel'
 import { NoticeComposer } from './NoticeComposer'
 
-type Tab = 'notices' | 'documents'
+type Tab = 'notices' | 'documents' | 'share'
 
 /**
  * Managing one event. Access is already checked by ProtectedRoute, which
@@ -63,7 +64,7 @@ export function AdminEventDashboard() {
       </header>
 
       <div role="tablist" className="flex gap-1 border-b border-edge">
-        {(['notices', 'documents'] as Tab[]).map((value) => (
+        {(['notices', 'documents', 'share'] as Tab[]).map((value) => (
           <button
             key={value}
             role="tab"
@@ -80,11 +81,14 @@ export function AdminEventDashboard() {
         ))}
       </div>
 
-      {tab === 'notices' ? (
-        <NoticeComposer eventCode={eventCode} />
-      ) : (
-        <AdminDocumentsPanel eventCode={eventCode} />
-      )}
+      {tab === 'notices' && <NoticeComposer eventCode={eventCode} />}
+      {tab === 'documents' && <AdminDocumentsPanel eventCode={eventCode} />}
+      {tab === 'share' &&
+        (event ? (
+          <EventSharePanel event={event} />
+        ) : (
+          <div className="h-64 animate-pulse rounded-lg bg-surface" />
+        ))}
     </div>
   )
 }
