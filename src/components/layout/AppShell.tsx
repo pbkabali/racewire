@@ -5,6 +5,7 @@ import { formatEventDates } from '../../features/events/types'
 import { useEvent } from '../../features/events/useEvent'
 import { canManageEvent } from '../../lib/firebase/auth'
 import { Brand } from '../Brand'
+import { InstallPrompt } from '../InstallPrompt'
 import { OfflineBanner } from '../OfflineBanner'
 import { ThemeToggle } from '../ThemeToggle'
 
@@ -84,6 +85,7 @@ export function AppShell() {
 
       {/* pb-20 clears the fixed mobile tab bar. */}
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-4 pb-20 sm:px-6 sm:pb-8">
+        <InstallPrompt />
         <Outlet />
       </main>
 

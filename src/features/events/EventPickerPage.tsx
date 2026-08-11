@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import { Brand } from '../../components/Brand'
+import { InstallPrompt } from '../../components/InstallPrompt'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { formatEventDates, type Event, type EventStatus } from './types'
 import { groupByStatus, STATUS_ORDER, useEvents } from './useEvents'
@@ -28,6 +29,7 @@ export function EventPickerPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-6">
+        <InstallPrompt />
         <h1 className="text-xl font-bold tracking-tight text-fg">Choose an event</h1>
         <p className="mt-1 text-sm text-fg-muted">
           Notices, schedule, documents and results are published per event.
