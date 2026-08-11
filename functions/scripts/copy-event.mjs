@@ -215,10 +215,22 @@ for (const name of SUBCOLLECTIONS) {
   console.log(`  ${name}: ${snapshot.size}`)
 }
 
-console.log(
-  `\n${dryRun ? 'Would write' : 'Wrote'} ${written} document(s) and ` +
-    `${fileMap.size} file(s) to ${toCreds.project_id}.`,
-)
+if (dryRun) {
+  // Said plainly at the end, not only in the header: the "would copy" lines
+  // above read exactly like success, and it is easy to walk away believing the
+  // copy happened.
+  console.log(
+    `\nDRY RUN — NOTHING WAS WRITTEN.\n` +
+      `Would have written ${written} document(s) and ${fileMap.size} file(s) ` +
+      `to ${toCreds.project_id}.\n\n` +
+      `Re-run without --dry-run to do it.`,
+  )
+} else {
+  console.log(
+    `\nWrote ${written} document(s) and ${fileMap.size} file(s) to ` +
+      `${toCreds.project_id}.`,
+  )
+}
 
 if (!dryRun) {
   console.log(
