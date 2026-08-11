@@ -499,6 +499,45 @@ would point at staging no matter where it is deployed.
 
 ---
 
+## Copying an event to another project
+
+Promote an event you have set up and checked on staging:
+
+```bash
+cd functions
+node scripts/copy-event.mjs UMC2026 \
+  --from ~/.secrets/racewire-stg-firebase-adminsdk-<id>.json \
+  --to   ~/.secrets/racewire-live-firebase-adminsdk-<id>.json \
+  --dry-run
+```
+
+`--dry-run` first, always — it reports exactly what would be written and
+changes nothing. Drop the flag to do it.
+
+It copies the event document, its notices, races, folders and documents, **and
+the Storage objects those documents point at**. That last part matters: a
+document's `fileUrl` points at the source bucket, so a Firestore-only copy
+leaves production serving files out of staging. It works until staging is
+deleted or its rules change, and then every document 404s at once. Files are
+re-uploaded to the destination bucket and the URLs rewritten.
+
+| Flag | Effect |
+| --- | --- |
+| `--dry-run` | report only, write nothing |
+| `--overwrite` | replace an event that already exists at the destination |
+| `--no-files` | Firestore only, leaving URLs pointed at the source |
+
+Two things it deliberately does **not** do:
+
+- **Admin access does not travel.** Claims live on Auth users, which are
+  per-project. Grant it separately with `grant-admin.mjs` and the destination
+  key.
+- **`--overwrite` replaces documents by id; it does not delete.** Anything the
+  destination has that the source lacks survives, so this cannot be used to
+  make production an exact mirror.
+
+---
+
 ## Storage CORS — required before any PDF will open
 
 **Do this once per project.** A new bucket has no CORS configuration, and a
