@@ -37,11 +37,28 @@ export function PhoneVerification({
   const recaptchaRef = useRef<HTMLDivElement>(null)
   const verifierRef = useRef<RecaptchaVerifier | null>(null)
 
+  /**
+   * Build a verifier, tearing down anything left from a previous attempt.
+   *
+   * `clear()` alone is not enough: it releases Firebase's handle but leaves the
+   * widget's markup in the container, so the next attempt fails with "reCAPTCHA
+   * has already been rendered in this element". One failed send would otherwise
+   * poison every retry until a full page reload. Emptying the node is what
+   * actually makes it reusable.
+   */
+  function freshVerifier(): RecaptchaVerifier {
+    verifierRef.current?.clear()
+    verifierRef.current = null
+    if (recaptchaRef.current) recaptchaRef.current.innerHTML = ''
+
+    verifierRef.current = new RecaptchaVerifier(auth, recaptchaRef.current!, {
+      size: 'invisible',
+    })
+    return verifierRef.current
+  }
+
   useEffect(() => {
     return () => {
-      // The verifier attaches a widget to the DOM node and survives React's
-      // teardown unless cleared, which breaks the next mount with
-      // "reCAPTCHA has already been rendered in this element".
       verifierRef.current?.clear()
       verifierRef.current = null
     }
@@ -59,17 +76,10 @@ export function PhoneVerification({
 
     setBusy(true)
     try {
-      verifierRef.current ??= new RecaptchaVerifier(auth, recaptchaRef.current!, {
-        size: 'invisible',
-      })
-
-      const result = await signInWithPhoneNumber(auth, trimmed, verifierRef.current)
+      const result = await signInWithPhoneNumber(auth, trimmed, freshVerifier())
       setConfirmation(result)
     } catch (cause) {
       setError(describe(cause))
-      // A failed attempt leaves the widget in a state that rejects reuse.
-      verifierRef.current?.clear()
-      verifierRef.current = null
     } finally {
       setBusy(false)
     }
@@ -215,7 +225,11 @@ function describe(cause: unknown): string {
     case 'auth/quota-exceeded':
       return 'The SMS quota for this project has been reached. Contact the organiser.'
     case 'auth/operation-not-allowed':
-      return 'Phone sign-in is not enabled on this Firebase project yet. Contact the organiser.'
+      return (
+        'Phone sign-in is not enabled for this project. If it was just switched ' +
+        'on, give it a minute and reload the page — the setting is read when the ' +
+        'page loads.'
+      )
     case 'auth/captcha-check-failed':
       return 'The security check failed. Reload the page and try again.'
     default:
