@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import { AttachmentViewer } from '../../components/attachments/AttachmentViewer'
 import { useEvent } from '../events/useEvent'
 import type { EventDocument } from '../events/types'
 import { DocumentRow } from './DocumentRow'
 import { toAttachment } from './toAttachment'
+import { getFormDefinition } from '../forms/rallyEntry'
 import { groupDocuments, useDocuments } from './useDocuments'
 
 /** Public documents list. Anyone can read; only event admins can publish. */
@@ -91,7 +93,20 @@ export function DocumentsPage() {
       ))}
 
       {open && (
-        <AttachmentViewer attachment={toAttachment(open)} onClose={() => setOpen(null)} />
+        <AttachmentViewer
+          attachment={toAttachment(open)}
+          onClose={() => setOpen(null)}
+          action={
+            getFormDefinition(open.formType) ? (
+              <Link
+                to={`fill/${open.id}`}
+                className="flex-none rounded bg-accent px-3 py-1 text-xs font-bold text-accent-fg"
+              >
+                Fill out
+              </Link>
+            ) : null
+          }
+        />
       )}
     </div>
   )
