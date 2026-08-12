@@ -5,6 +5,8 @@ import { Link, useParams } from 'react-router-dom'
 import { db, eventCollections, eventPath } from '../../lib/firebase/db'
 import type { EventDocument } from '../events/types'
 import { useEvent } from '../events/useEvent'
+import { FormFiller } from './FormFiller'
+import { PhoneVerification } from './PhoneVerification'
 import { getFormDefinition } from './rallyEntry'
 import { checkLicence, type LicenceCheck } from './useLicences'
 
@@ -33,6 +35,8 @@ export function FillFormPage() {
   const [checking, setChecking] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
   const [verified, setVerified] = useState<string | null>(null)
+  const [identity, setIdentity] = useState<{ phone: string; uid: string } | null>(null)
+  const [submitted, setSubmitted] = useState(false)
 
   useEffect(() => {
     if (!documentId) return
@@ -94,23 +98,40 @@ export function FillFormPage() {
         <p className="mt-1 text-sm text-fg-muted">{form.description}</p>
       </div>
 
-      {verified ? (
+      {submitted ? (
+        <div className="rounded-lg border border-edge bg-surface p-6 text-center">
+          <p className="text-lg font-bold text-fg">Entry submitted</p>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-fg-muted">
+            The organiser has it. Remember the entry is only valid once the fee is
+            paid and the receipt reaches them before the closing date.
+          </p>
+          <Link
+            to=".."
+            relative="path"
+            className="mt-4 inline-block rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-fg"
+          >
+            Back to documents
+          </Link>
+        </div>
+      ) : verified && identity ? (
+        <FormFiller
+          definition={form}
+          eventCode={event.code}
+          eventName={event.name}
+          documentId={document.id}
+          uid={identity.uid}
+          phone={identity.phone}
+          licenceNumber={verified}
+          onSubmitted={() => setSubmitted(true)}
+        />
+      ) : verified ? (
         <div className="space-y-3">
           <p className="rounded-lg border border-edge bg-surface p-4 text-sm text-fg">
             Licence <span className="font-mono text-accent-text">{verified}</span> accepted.
           </p>
-
-          <div className="rounded-lg border border-edge bg-surface p-4">
-            <h2 className="font-semibold text-fg">Next: verify your phone</h2>
-            <p className="mt-1 text-sm text-fg-muted">
-              We send a one-time code by SMS so an entry can be tied to a real
-              contact, and so you can return to a part-finished form later.
-            </p>
-            <p className="mt-2 text-xs text-fg-subtle">
-              Not built yet — phone verification, the form itself, signatures and
-              submission are the next stage.
-            </p>
-          </div>
+          <PhoneVerification
+            onVerified={(phone, uid) => setIdentity({ phone, uid })}
+          />
         </div>
       ) : (
         <form onSubmit={submitLicence} className="space-y-3 rounded-lg border border-edge bg-surface p-4">

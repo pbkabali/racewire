@@ -4,12 +4,16 @@ import { createBrowserRouter } from 'react-router-dom'
 import { Loading } from '../components/Loading'
 import { DocumentsPage } from '../features/documents/DocumentsPage'
 import { EventLayout } from '../features/events/EventLayout'
-import { FillFormPage } from '../features/forms/FillFormPage'
 import { EventPickerPage } from '../features/events/EventPickerPage'
 import { NoticesPage } from '../features/notices/NoticesPage'
 import { SchedulePage } from '../features/races/SchedulePage'
 import { ResultsPage } from '../features/results/ResultsPage'
-import { AdminEventDashboard, AdminEventList, LoginPage } from './lazyPages'
+import {
+  AdminEventDashboard,
+  AdminEventList,
+  FillFormPage,
+  LoginPage,
+} from './lazyPages'
 import { ProtectedRoute } from './ProtectedRoute'
 
 const lazy = (element: React.ReactNode) => (
@@ -29,7 +33,7 @@ export const router = createBrowserRouter([
       { index: true, element: <NoticesPage /> },
       { path: 'schedule', element: <SchedulePage /> },
       { path: 'docs', element: <DocumentsPage /> },
-      { path: 'docs/fill/:documentId', element: <FillFormPage /> },
+      { path: 'docs/fill/:documentId', element: lazy(<FillFormPage />) },
       { path: 'results', element: <ResultsPage /> },
     ],
   },
