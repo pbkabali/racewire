@@ -32,11 +32,32 @@ service firebase.storage {
       return request.resource.size < 15 * 1024 * 1024;
     }
 
-    // Event-owned files: documents and branding.
-    // Public read — a spectator downloading a bulletin is never signed in.
+    /*
+     * Event-owned files: documents and branding.
+     * Public read — a spectator downloading a bulletin is never signed in.
+     *
+     * `folder != 'entries'` is load-bearing, not tidiness. Storage rules OR
+     * together: without it, a signature at events/X/entries/sig.png would match
+     * this rule as well as the restricted one below, and `allow read: if true`
+     * would win. Excluding the folder here is what keeps that data private.
+     */
     match /events/{eventId}/{folder}/{fileName} {
-      allow read: if true;
-      allow write: if manages(eventId) && isAllowedType() && withinSizeLimit();
+      allow read: if folder != 'entries';
+      allow write: if manages(eventId)
+        && folder != 'entries'
+        && isAllowedType()
+        && withinSizeLimit();
+    }
+
+    /*
+     * Signatures and generated entry PDFs. NOT public, unlike everything else
+     * under events/ -- a signature image is as sensitive as the form it signs.
+     * Read is limited to that event's admins; the filler's own copy is served
+     * through the app from a URL only they receive.
+     */
+    match /events/{eventId}/entries/{allPaths=**} {
+      allow read: if manages(eventId);
+      allow write: if request.auth != null && isAllowedType() && withinSizeLimit();
     }
 
     // Notice attachments, written before an event scoping existed on this path.

@@ -9,9 +9,10 @@ import { AdminDocumentsPanel } from '../documents/AdminDocumentsPanel'
 import { formatEventDates, type Event } from '../events/types'
 import { EventSharePanel } from './EventSharePanel'
 import { AdminNoticesPanel } from './AdminNoticesPanel'
+import { AdminLicencesPanel } from '../forms/AdminLicencesPanel'
 import { EventEditor } from './EventEditor'
 
-type Tab = 'notices' | 'documents' | 'share' | 'settings'
+type Tab = 'notices' | 'documents' | 'licences' | 'share' | 'settings'
 
 /**
  * Managing one event. Access is already checked by ProtectedRoute, which
@@ -65,7 +66,7 @@ export function AdminEventDashboard() {
       </header>
 
       <div role="tablist" className="flex gap-1 border-b border-edge">
-        {(['notices', 'documents', 'share', 'settings'] as Tab[]).map((value) => (
+        {(['notices', 'documents', 'licences', 'share', 'settings'] as Tab[]).map((value) => (
           <button
             key={value}
             role="tab"
@@ -84,6 +85,7 @@ export function AdminEventDashboard() {
 
       {tab === 'notices' && <AdminNoticesPanel eventCode={eventCode} />}
       {tab === 'documents' && <AdminDocumentsPanel eventCode={eventCode} />}
+      {tab === 'licences' && <AdminLicencesPanel eventCode={eventCode} />}
       {tab === 'share' &&
         (event ? (
           <EventSharePanel event={event} />

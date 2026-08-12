@@ -4,6 +4,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { Loading } from '../components/Loading'
 import { DocumentsPage } from '../features/documents/DocumentsPage'
 import { EventLayout } from '../features/events/EventLayout'
+import { FillFormPage } from '../features/forms/FillFormPage'
 import { EventPickerPage } from '../features/events/EventPickerPage'
 import { NoticesPage } from '../features/notices/NoticesPage'
 import { SchedulePage } from '../features/races/SchedulePage'
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { index: true, element: <NoticesPage /> },
       { path: 'schedule', element: <SchedulePage /> },
       { path: 'docs', element: <DocumentsPage /> },
+      { path: 'docs/fill/:documentId', element: <FillFormPage /> },
       { path: 'results', element: <ResultsPage /> },
     ],
   },

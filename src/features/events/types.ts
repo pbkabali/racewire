@@ -64,6 +64,11 @@ export type EventDocument = {
   folderId: string | null
   /** Free text: revision note, applies-to, whatever the organiser needs. */
   notes: string
+  /**
+   * Set when this document is a fillable form, naming which one. Null for an
+   * ordinary document. See src/features/forms/ for the definitions.
+   */
+  formType?: string | null
 
   fileName: string
   fileUrl: string

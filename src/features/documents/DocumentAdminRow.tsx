@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Timestamp } from 'firebase/firestore'
 
+import { FORM_DEFINITIONS } from '../forms/rallyEntry'
 import { formatBytes } from '../../lib/firebase/storage'
 import type { DocumentFolder, EventDocument } from '../events/types'
 
@@ -10,6 +11,7 @@ export type DocumentEdits = {
   documentDate: Timestamp | null
   folderId: string | null
   notes: string
+  formType: string | null
 }
 
 /** Firestore Timestamp -> the yyyy-mm-dd a date input expects, in local time. */
@@ -49,6 +51,7 @@ export function DocumentAdminRow({
   const [documentDate, setDocumentDate] = useState(toDateInput(document.documentDate))
   const [folderId, setFolderId] = useState(document.folderId ?? '')
   const [notes, setNotes] = useState(document.notes)
+  const [formType, setFormType] = useState(document.formType ?? '')
 
   function startEditing() {
     // Reset from the document each time, so a cancelled edit does not leave
@@ -58,6 +61,7 @@ export function DocumentAdminRow({
     setDocumentDate(toDateInput(document.documentDate))
     setFolderId(document.folderId ?? '')
     setNotes(document.notes)
+    setFormType(document.formType ?? '')
     setError(null)
     setEditing(true)
   }
@@ -80,6 +84,7 @@ export function DocumentAdminRow({
           : null,
         folderId: folderId || null,
         notes: notes.trim(),
+        formType: formType || null,
       })
       setEditing(false)
     } catch (cause) {
@@ -99,6 +104,11 @@ export function DocumentAdminRow({
             </span>
           )}
           {document.name}
+          {document.formType && (
+            <span className="ml-2 rounded border border-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-text">
+              FORM
+            </span>
+          )}
         </span>
         <span className="flex-none text-xs text-fg-subtle">{formatBytes(document.size)}</span>
         <button
@@ -196,6 +206,24 @@ export function DocumentAdminRow({
             />
           </label>
         </div>
+
+        <label className="block">
+          <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+            Fillable form
+          </span>
+          <select
+            value={formType}
+            onChange={(e) => setFormType(e.target.value)}
+            className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg"
+          >
+            <option value="">Not a form — download only</option>
+            {Object.values(FORM_DEFINITIONS).map((definition) => (
+              <option key={definition.id} value={definition.id}>
+                {definition.label}
+              </option>
+            ))}
+          </select>
+        </label>
 
         {error && (
           <p role="alert" className="text-sm text-danger-text">
