@@ -136,8 +136,17 @@ export function EventEditor({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-lg border border-edge bg-surface p-4">
-      <h2 className="font-semibold text-fg">{editing ? 'Event details' : 'Create an event'}</h2>
+    <form
+      onSubmit={submit}
+      // When creating, the caller supplies a dashed container that marks this
+      // out as a form rather than a record, so no second border here.
+      className={
+        editing
+          ? 'space-y-3 rounded-lg border border-edge bg-surface p-4'
+          : 'space-y-3 rounded-md bg-surface p-4'
+      }
+    >
+      {editing && <h2 className="font-semibold text-fg">Event details</h2>}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
