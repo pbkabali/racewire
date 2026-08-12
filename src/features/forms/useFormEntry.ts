@@ -1,14 +1,4 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
-  where,
-} from 'firebase/firestore'
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { db, eventCollections, eventPath } from '../../lib/firebase/db'
@@ -18,14 +8,17 @@ type EntryState = {
   entry: FormEntry | null
   loading: boolean
   error: Error | null
+  /** Someone else already started an entry for this licence. */
+  takenByAnother: boolean
 }
 
 /**
  * The filler's own entry for one document: loaded if they have started before,
  * created on first save.
  *
- * Resume works because the entry is keyed to their verified phone uid, so
- * returning on any device after the same verification finds the same draft.
+ * Resume works because the entry is keyed to the licence, so returning on any
+ * device -- after verifying any phone -- finds the same draft, provided it is
+ * the same person who started it.
  */
 export function useFormEntry({
   eventCode,
@@ -42,12 +35,27 @@ export function useFormEntry({
   phone: string
   licenceNumber: string
 }) {
-  const [state, setState] = useState<EntryState>({ entry: null, loading: true, error: null })
+  const [state, setState] = useState<EntryState>({
+    entry: null,
+    loading: true,
+    error: null,
+    takenByAnother: false,
+  })
 
-  // Deterministic id, so a second tab or a repeated visit cannot create a
-  // second draft for the same person and document. Firestore ids allow this
-  // charset; the licence is already normalised to A-Z0-9 upstream.
-  const entryId = `${uid}_${documentId}`
+  /*
+   * Keyed by LICENCE, not by uid.
+   *
+   * The entry belongs to a competitor, and the licence is who they are; the
+   * phone is only how they were verified. Keying on uid meant one phone could
+   * hold just one entry per form -- so a second licence verified from the same
+   * phone reopened the first one's submitted entry -- while the same licence
+   * filed from two phones would have produced two entries, defeating the gate
+   * the licence check exists to provide.
+   *
+   * Both parts are safe as an id: the licence is normalised to A-Z0-9 upstream
+   * and documentId is a Firestore auto-id.
+   */
+  const entryId = `${licenceNumber}_${documentId}`
   const entryRef = useCallback(
     () => doc(db, eventPath(eventCode, eventCollections.entries), entryId),
     [eventCode, entryId],
@@ -61,31 +69,33 @@ export function useFormEntry({
      * form: every keystroke saves, the snapshot echoes back, and the field the
      * person is typing in gets reset under them.
      */
-    getDocs(
-      query(
-        collection(db, eventPath(eventCode, eventCollections.entries)),
-        where('uid', '==', uid),
-        where('documentId', '==', documentId),
-        limit(1),
-      ),
-    )
+    getDoc(entryRef())
       .then((snap) => {
         if (cancelled) return
-        const found = snap.docs[0]
         setState({
-          entry: found ? ({ ...(found.data() as FormEntry), id: found.id }) : null,
+          entry: snap.exists() ? { ...(snap.data() as FormEntry), id: snap.id } : null,
           loading: false,
           error: null,
+          takenByAnother: false,
         })
       })
-      .catch((error: Error) => {
-        if (!cancelled) setState({ entry: null, loading: false, error })
+      .catch((error: Error & { code?: string }) => {
+        if (cancelled) return
+        // Rules allow reading an entry only to its own filer or an admin, so a
+        // denial here means the entry exists and belongs to somebody else.
+        const denied = error.code === 'permission-denied'
+        setState({
+          entry: null,
+          loading: false,
+          error: denied ? null : error,
+          takenByAnother: denied,
+        })
       })
 
     return () => {
       cancelled = true
     }
-  }, [eventCode, documentId, uid])
+  }, [entryRef])
 
   const saving = useRef(false)
 

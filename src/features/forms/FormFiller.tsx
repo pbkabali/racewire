@@ -31,7 +31,7 @@ export function FormFiller({
   licenceNumber: string
   onSubmitted: () => void
 }) {
-  const { entry, loading, saveDraft, markSubmitted } = useFormEntry({
+  const { entry, entryId, loading, takenByAnother, saveDraft, markSubmitted } = useFormEntry({
     eventCode,
     documentId,
     formType: definition.id,
@@ -153,7 +153,10 @@ export function FormFiller({
         if (!dataUrl) continue
         stored[party] = await uploadDataUrl(
           dataUrl,
-          `events/${eventCode}/entries/${uid}_${documentId}/signature-${party}.png`,
+          // Same key as the entry document. Keyed on uid these would collide
+          // for two licences filed from one phone, the second overwriting the
+          // first's signatures and PDF.
+          `events/${eventCode}/entries/${entryId}/signature-${party}.png`,
           'image/png',
         )
       }
@@ -170,7 +173,7 @@ export function FormFiller({
 
       const pdfPath = await uploadDataUrl(
         pdf,
-        `events/${eventCode}/entries/${uid}_${documentId}/entry.pdf`,
+        `events/${eventCode}/entries/${entryId}/entry.pdf`,
         'application/pdf',
       )
 
@@ -184,6 +187,21 @@ export function FormFiller({
   }
 
   if (loading) return <div className="h-64 animate-pulse rounded-lg bg-surface" />
+
+  if (takenByAnother) {
+    return (
+      <div className="rounded-lg border border-danger bg-surface p-6 text-center">
+        <p className="font-semibold text-fg">
+          An entry for licence {licenceNumber} already exists
+        </p>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-fg-muted">
+          It was started from a different phone number, so it cannot be opened
+          here. Verify with the number used originally, or ask the organiser to
+          remove it so you can start again.
+        </p>
+      </div>
+    )
+  }
 
   if (entry?.status === 'submitted') {
     return (
