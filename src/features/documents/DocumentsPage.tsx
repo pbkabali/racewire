@@ -99,7 +99,7 @@ export function DocumentsPage() {
           action={
             getFormDefinition(open.formType) ? (
               <Link
-                to={`fill/${open.id}`}
+                to={`/e/${event.code}/docs/fill/${open.id}`}
                 className="flex-none rounded bg-accent px-3 py-1 text-xs font-bold text-accent-fg"
               >
                 Fill out

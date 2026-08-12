@@ -51,6 +51,13 @@ export function FillFormPage() {
 
   const form = getFormDefinition(document?.formType)
 
+  /*
+   * Absolute, not relative. This route is two segments deep under docs
+   * (docs/fill/:documentId), so `..` with relative="path" lands on
+   * /e/CODE/docs/fill -- which matches no route and 404s.
+   */
+  const documentsPath = `/e/${event.code}/docs`
+
   async function submitLicence(submitEvent: FormEvent) {
     submitEvent.preventDefault()
     setRefusal(null)
@@ -81,7 +88,7 @@ export function FillFormPage() {
             ? 'This document is not a fillable form.'
             : 'That document no longer exists.'}
         </p>
-        <Link to=".." relative="path" className="text-sm font-semibold text-accent-text underline">
+        <Link to={documentsPath} className="text-sm font-semibold text-accent-text underline">
           Back to documents
         </Link>
       </div>
@@ -91,7 +98,7 @@ export function FillFormPage() {
   return (
     <div className="space-y-4">
       <div>
-        <Link to=".." relative="path" className="text-xs text-fg-muted hover:text-fg">
+        <Link to={documentsPath} className="text-xs text-fg-muted hover:text-fg">
           ← Documents
         </Link>
         <h1 className="mt-1 text-xl font-bold tracking-tight text-fg">{form.label}</h1>
@@ -106,8 +113,7 @@ export function FillFormPage() {
             paid and the receipt reaches them before the closing date.
           </p>
           <Link
-            to=".."
-            relative="path"
+            to={documentsPath}
             className="mt-4 inline-block rounded-md bg-accent px-4 py-2 text-sm font-bold text-accent-fg"
           >
             Back to documents

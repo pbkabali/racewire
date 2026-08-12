@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import { downloadAttachment, formatBytes } from '../../lib/firebase/storage'
+import { useEvent } from '../events/useEvent'
 import { getFormDefinition } from '../forms/rallyEntry'
 import type { EventDocument } from '../events/types'
 import { toAttachment } from './toAttachment'
@@ -12,6 +13,7 @@ export function DocumentRow({
   document: EventDocument
   onOpen: (document: EventDocument) => void
 }) {
+  const event = useEvent()
   const isPdf = document.contentType === 'application/pdf'
   const form = getFormDefinition(document.formType)
 
@@ -66,7 +68,7 @@ export function DocumentRow({
           and carries the accent; download stays for anyone who prefers paper. */}
       {form && (
         <Link
-          to={`fill/${document.id}`}
+          to={`/e/${event.code}/docs/fill/${document.id}`}
           className="flex-none rounded bg-accent px-2 py-1 text-xs font-bold text-accent-fg"
         >
           Fill out
