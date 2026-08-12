@@ -204,6 +204,30 @@ export function PhoneVerification({
         </p>
       )}
 
+      {/* Required attribution, shown because the floating badge is hidden in
+          index.css. Google's terms allow hiding the badge only on this basis. */}
+      <p className="text-[10px] leading-snug text-fg-subtle">
+        Protected by reCAPTCHA — the Google{' '}
+        <a
+          href="https://policies.google.com/privacy"
+          target="_blank"
+          rel="noreferrer"
+          className="underline"
+        >
+          Privacy Policy
+        </a>{' '}
+        and{' '}
+        <a
+          href="https://policies.google.com/terms"
+          target="_blank"
+          rel="noreferrer"
+          className="underline"
+        >
+          Terms of Service
+        </a>{' '}
+        apply. It runs invisibly; you will normally see nothing.
+      </p>
+
       {/* The invisible reCAPTCHA anchors here. */}
       <div ref={recaptchaRef} />
     </form>
