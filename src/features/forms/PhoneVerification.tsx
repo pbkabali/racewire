@@ -256,6 +256,19 @@ function describe(cause: unknown): string {
       )
     case 'auth/captcha-check-failed':
       return 'The security check failed. Reload the page and try again.'
+    case 'auth/invalid-app-credential':
+      /*
+       * The reCAPTCHA token was rejected. In practice this is almost always the
+       * browser blocking Google's reCAPTCHA scripts -- Brave Shields, uBlock,
+       * strict tracking protection -- rather than anything wrong with the
+       * project. It does not show up while testing with a Firebase test phone
+       * number, because those skip app verification entirely.
+       */
+      return (
+        'The security check could not complete. This is usually a browser ' +
+        'blocking Google’s reCAPTCHA: turn off Shields or your ad blocker for ' +
+        'this site, or try another browser, then reload.'
+      )
     default:
       return cause instanceof Error ? cause.message : 'Could not send the code.'
   }
