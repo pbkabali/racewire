@@ -351,14 +351,27 @@ export function FormFiller({
               ))}
             </div>
 
-            <label className="flex items-start gap-2 text-sm text-fg">
+            {/*
+              * Deliberately large. This is the tick that makes the indemnity
+              * binding, and a browser-default 13px box is both easy to miss and
+              * awkward to hit on a phone -- well under the ~44px touch target
+              * a control this consequential deserves. The whole card is
+              * clickable, not just the box.
+              */}
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                acknowledged
+                  ? 'border-accent bg-surface-raised'
+                  : 'border-edge bg-bg hover:border-accent/60'
+              }`}
+            >
               <input
                 type="checkbox"
                 checked={acknowledged}
                 onChange={(e) => setAcknowledged(e.target.checked)}
-                className="mt-1 accent-accent"
+                className="mt-0.5 h-6 w-6 flex-none accent-accent"
               />
-              <span>{section.acknowledgement}</span>
+              <span className="text-sm text-fg">{section.acknowledgement}</span>
             </label>
 
             <div className="grid gap-4 sm:grid-cols-3">
