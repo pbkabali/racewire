@@ -246,46 +246,62 @@ export function FormFiller({
           )}
         </div>
 
+        {/*
+          * Grouped by party, not by row.
+          *
+          * The paper form is a matrix because paper has no other option, but on
+          * screen a row of three inputs labelled Entrant / First driver /
+          * Co-driver forces the reader to hold the column meaning in their head
+          * for every row. One card per person is how someone actually fills it
+          * in: their own details, then their co-driver's.
+          *
+          * Rows that do not apply to a party are omitted entirely rather than
+          * greyed, so a card contains only questions that can be answered.
+          */}
         {section.kind === 'matrix' &&
-          section.rows.map((row) => (
-            <div key={row.key}>
-              <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-                {row.label}
-              </span>
-              {row.help && <span className="ml-2 text-xs text-fg-subtle">{row.help}</span>}
+          section.parties.map((party) => {
+            const rows = section.rows.filter(
+              (row) => !row.notApplicableTo?.includes(party.key),
+            )
+            if (!rows.length) return null
 
-              <div className="mt-1 grid gap-2 sm:grid-cols-3">
-                {section.parties.map((party) => {
-                  const disabled = row.notApplicableTo?.includes(party.key)
-                  const key = matrixKey(section.id, row.key, party.key)
+            return (
+              <fieldset
+                key={party.key}
+                className="rounded-md border border-edge bg-bg p-3"
+              >
+                <legend className="px-1 text-xs font-bold tracking-wide text-accent-text uppercase">
+                  {party.label}
+                </legend>
 
-                  return (
-                    <label key={party.key} className="block">
-                      <span className="mb-0.5 block text-[11px] text-fg-subtle">
-                        {party.label}
-                        {row.requiredFor?.includes(party.key) && !disabled && ' *'}
-                      </span>
-                      {/* Greyed on paper, greyed here: shown but unfillable, so
-                          the screen still matches the printed form. */}
-                      <input
-                        type={row.kind === 'date' ? 'date' : row.kind}
-                        disabled={disabled}
-                        value={disabled ? '' : (values[key] ?? '')}
-                        onChange={(e) => set(key, e.target.value)}
-                        autoComplete={row.autoComplete}
-                        placeholder={disabled ? 'Not applicable' : undefined}
-                        className={`w-full rounded-md border border-edge px-3 py-2 text-sm ${
-                          disabled
-                            ? 'cursor-not-allowed bg-surface-raised text-fg-subtle'
-                            : 'bg-bg text-fg'
-                        }`}
-                      />
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {rows.map((row) => {
+                    const key = matrixKey(section.id, row.key, party.key)
+                    const required = row.requiredFor?.includes(party.key)
+
+                    return (
+                      <label key={row.key} className="block">
+                        <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+                          {row.label}
+                          {required && ' *'}
+                        </span>
+                        <input
+                          type={row.kind === 'date' ? 'date' : row.kind}
+                          value={values[key] ?? ''}
+                          onChange={(e) => set(key, e.target.value)}
+                          autoComplete={row.autoComplete}
+                          className="mt-1 w-full rounded-md border border-edge bg-surface px-3 py-2 text-sm text-fg"
+                        />
+                        {row.help && (
+                          <span className="mt-1 block text-xs text-fg-subtle">{row.help}</span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              </fieldset>
+            )
+          })}
 
         {section.kind === 'fields' && (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -335,14 +351,27 @@ export function FormFiller({
               ))}
             </div>
 
-            <label className="flex items-start gap-2 text-sm text-fg">
+            {/*
+              * Deliberately large. This is the tick that makes the indemnity
+              * binding, and a browser-default 13px box is both easy to miss and
+              * awkward to hit on a phone -- well under the ~44px touch target
+              * a control this consequential deserves. The whole card is
+              * clickable, not just the box.
+              */}
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
+                acknowledged
+                  ? 'border-accent bg-surface-raised'
+                  : 'border-edge bg-bg hover:border-accent/60'
+              }`}
+            >
               <input
                 type="checkbox"
                 checked={acknowledged}
                 onChange={(e) => setAcknowledged(e.target.checked)}
-                className="mt-1 accent-accent"
+                className="mt-0.5 h-6 w-6 flex-none accent-accent"
               />
-              <span>{section.acknowledgement}</span>
+              <span className="text-sm text-fg">{section.acknowledgement}</span>
             </label>
 
             <div className="grid gap-4 sm:grid-cols-3">
