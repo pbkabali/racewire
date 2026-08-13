@@ -19,10 +19,10 @@ const DRIVERS_ONLY: Party[] = [
  * out on paper, which stay visible but unfillable so the screen still maps onto
  * the printed form an organiser is holding.
  *
- * The Entrant column is name-only, confirmed by the organiser: an entrant is
- * frequently a team or company, so nothing else in that column applies to it.
- * Everything a person would supply -- names, date of birth, address, contacts,
- * next of kin -- is asked of the drivers instead.
+ * The Entrant column carries only a name, an address and an email, all of the
+ * latter two optional: an entrant is frequently a team or company, so the
+ * personal rows -- names, date of birth, telephones, next of kin -- do not
+ * apply and are asked of the drivers instead.
  */
 export const rallyEntryForm: FormDefinition = {
   id: 'rally-entry',
@@ -86,12 +86,15 @@ export const rallyEntryForm: FormDefinition = {
       title: 'Contact details',
       parties: PARTIES,
       rows: [
+        // Collected for all three. Optional for the entrant, which may be a
+        // company whose correspondence details sit elsewhere; required of the
+        // crew, who have to be reachable.
         {
           key: 'address',
           label: 'Physical / postal address',
           kind: 'text',
-          notApplicableTo: ['entrant'],
-          requiredFor: ['driver'],
+          help: 'Optional for the entrant',
+          requiredFor: ['driver', 'codriver'],
           autoComplete: 'street-address',
         },
         {
@@ -117,8 +120,8 @@ export const rallyEntryForm: FormDefinition = {
           key: 'email',
           label: 'Email address',
           kind: 'email',
-          notApplicableTo: ['entrant'],
-          requiredFor: ['driver'],
+          help: 'Optional for the entrant',
+          requiredFor: ['driver', 'codriver'],
           autoComplete: 'email',
         },
         {
