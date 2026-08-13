@@ -33,6 +33,8 @@ export function PhoneVerification({
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** True once the checkbox is ticked; Send stays disabled until it is. */
+  const [solved, setSolved] = useState(false)
 
   const recaptchaRef = useRef<HTMLDivElement>(null)
   const verifierRef = useRef<RecaptchaVerifier | null>(null)
@@ -65,9 +67,14 @@ export function PhoneVerification({
      * person can actually complete. A reliable tap beats an invisible check
      * that strands people.
      */
+    setSolved(false)
     verifierRef.current = new RecaptchaVerifier(auth, recaptchaRef.current!, {
       size: 'normal',
       theme: 'dark',
+      callback: () => setSolved(true),
+      // A solved challenge expires after a couple of minutes; re-disable rather
+      // than let a stale tick send a request that will be refused.
+      'expired-callback': () => setSolved(false),
     })
     return verifierRef.current
   }
@@ -177,12 +184,22 @@ export function PhoneVerification({
             </span>
           </label>
 
+          <div>
+            <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+              Confirm you are not a robot
+            </span>
+            {/* Above the button, because it has to be done first. Below it, the
+                enabled button read as the next step and the checkbox as
+                decoration. */}
+            <div ref={recaptchaRef} className="mt-1" />
+          </div>
+
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || !solved}
             className="w-full rounded-md bg-accent py-2 font-bold text-accent-fg disabled:opacity-60"
           >
-            {busy ? 'Sending…' : 'Send code'}
+            {busy ? 'Sending…' : solved ? 'Send code' : 'Tick the box above first'}
           </button>
         </>
       ) : (
@@ -237,33 +254,7 @@ export function PhoneVerification({
         </p>
       )}
 
-      {/* Required attribution, shown because the floating badge is hidden in
-          index.css. Google's terms allow hiding the badge only on this basis. */}
-      <p className="text-[10px] leading-snug text-fg-subtle">
-        Protected by reCAPTCHA — the Google{' '}
-        <a
-          href="https://policies.google.com/privacy"
-          target="_blank"
-          rel="noreferrer"
-          className="underline"
-        >
-          Privacy Policy
-        </a>{' '}
-        and{' '}
-        <a
-          href="https://policies.google.com/terms"
-          target="_blank"
-          rel="noreferrer"
-          className="underline"
-        >
-          Terms of Service
-        </a>{' '}
-        apply. It runs invisibly; you will normally see nothing.
-      </p>
 
-      {/* The reCAPTCHA checkbox renders here. Hidden once a code has been
-          sent, since it has served its purpose for this attempt. */}
-      <div ref={recaptchaRef} className={confirmation ? 'hidden' : ''} />
     </form>
   )
 }
