@@ -49,18 +49,6 @@
 }
 
 @layer utilities {
-  /*
-   * Hide the floating reCAPTCHA badge.
-   *
-   * Google's terms allow this only if the attribution is shown instead, which
-   * PhoneVerification does in text. The badge otherwise sits over the bottom
-   * corner of every page once phone auth has loaded, and on a phone it lands
-   * squarely on the tab bar.
-   */
-  .grecaptcha-badge {
-    visibility: hidden;
-  }
-
   /* Kill momentum-scroll bounce on the fixed app shell. */
   .overscroll-none-y {
     overscroll-behavior-y: none;

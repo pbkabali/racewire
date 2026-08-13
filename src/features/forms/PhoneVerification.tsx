@@ -51,17 +51,43 @@ export function PhoneVerification({
     verifierRef.current = null
     if (recaptchaRef.current) recaptchaRef.current.innerHTML = ''
 
+    /*
+     * A visible checkbox, not the invisible variant.
+     *
+     * Invisible reCAPTCHA scores the session silently and, when it is not
+     * satisfied, fails with auth/invalid-app-credential and no way for the user
+     * to do anything about it. That happened here in both Brave and Chrome
+     * while the project itself was correctly configured -- verified: the API
+     * key reaches Identity Toolkit, localhost is authorized, phone sign-in is
+     * enabled and UG is allowed.
+     *
+     * The checkbox costs one tap and either passes or shows a challenge the
+     * person can actually complete. A reliable tap beats an invisible check
+     * that strands people.
+     */
     verifierRef.current = new RecaptchaVerifier(auth, recaptchaRef.current!, {
-      size: 'invisible',
+      size: 'normal',
+      theme: 'dark',
     })
     return verifierRef.current
   }
 
   useEffect(() => {
+    // Rendered on mount so the person can solve it while typing their number,
+    // rather than the widget appearing at the instant they press Send.
+    if (!confirmation) {
+      try {
+        void freshVerifier().render()
+      } catch {
+        // A second render in React StrictMode's double-invoke is harmless.
+      }
+    }
+
     return () => {
       verifierRef.current?.clear()
       verifierRef.current = null
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function sendCode(event: FormEvent) {
@@ -76,10 +102,17 @@ export function PhoneVerification({
 
     setBusy(true)
     try {
-      const result = await signInWithPhoneNumber(auth, trimmed, freshVerifier())
+      const verifier = verifierRef.current ?? freshVerifier()
+      const result = await signInWithPhoneNumber(auth, trimmed, verifier)
       setConfirmation(result)
     } catch (cause) {
       setError(describe(cause))
+      // A consumed or rejected challenge cannot be reused; give them a new one.
+      try {
+        void freshVerifier().render()
+      } catch {
+        /* ignore */
+      }
     } finally {
       setBusy(false)
     }
@@ -228,8 +261,9 @@ export function PhoneVerification({
         apply. It runs invisibly; you will normally see nothing.
       </p>
 
-      {/* The invisible reCAPTCHA anchors here. */}
-      <div ref={recaptchaRef} />
+      {/* The reCAPTCHA checkbox renders here. Hidden once a code has been
+          sent, since it has served its purpose for this attempt. */}
+      <div ref={recaptchaRef} className={confirmation ? 'hidden' : ''} />
     </form>
   )
 }
