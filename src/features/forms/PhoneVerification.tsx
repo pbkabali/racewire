@@ -113,6 +113,13 @@ export function PhoneVerification({
       const result = await signInWithPhoneNumber(auth, trimmed, verifier)
       setConfirmation(result)
     } catch (cause) {
+      // The friendly message loses the detail that identifies the cause, so the
+      // raw error goes to the console where it can be read and reported.
+      console.error('[racewire] phone verification failed', {
+        code: (cause as { code?: string })?.code,
+        message: (cause as { message?: string })?.message,
+        cause,
+      })
       setError(describe(cause))
       // A consumed or rejected challenge cannot be reused; give them a new one.
       try {
