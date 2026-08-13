@@ -13,6 +13,11 @@ export const AdminEventList = lazy(() =>
   import('../features/admin/AdminEventList').then((m) => ({ default: m.AdminEventList })),
 )
 
+/** Uncommon route, and it pulls in the form machinery. */
+export const FillFormPage = lazy(() =>
+  import('../features/forms/FillFormPage').then((m) => ({ default: m.FillFormPage })),
+)
+
 export const AdminEventDashboard = lazy(() =>
   import('../features/admin/AdminEventDashboard').then((m) => ({
     default: m.AdminEventDashboard,

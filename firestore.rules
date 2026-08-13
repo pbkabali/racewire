@@ -61,6 +61,61 @@ service cloud.firestore {
         allow read: if true;
         allow write: if manages(eventId);
       }
+
+      /*
+       * Competition licences. A competitor must be able to check their own
+       * number at the entry gate, but the list as a whole is personal data:
+       * names attached to licence numbers.
+       *
+       * `get` allows reading one document by id; `list` is what a query needs.
+       * Allowing get and denying list means a filler can verify the number they
+       * already hold and cannot enumerate anybody else's.
+       */
+      match /licences/{licenceNumber} {
+        allow get: if true;
+        allow list: if manages(eventId);
+        allow write: if manages(eventId);
+      }
+
+      /*
+       * Filled entry forms — the most sensitive data in the app: dates of
+       * birth, passport nationality, addresses, next of kin, signatures.
+       *
+       * Never public, and never readable across events. A filler may read and
+       * write only their own, and only while it is still a draft; once
+       * submitted it is the organiser's record and the filler cannot alter it.
+       */
+      match /entries/{entryId} {
+        /*
+         * `resource == null` is load-bearing. On a get for a document that does
+         * not exist, resource is null, so resource.data.uid throws and the rule
+         * denies -- meaning a first-time filler is refused the very read that
+         * tells the app they have nothing yet. Reading a missing document
+         * returns nothing, so allowing it discloses nothing.
+         */
+        allow get: if manages(eventId) || (
+          request.auth != null && (
+            resource == null || resource.data.uid == request.auth.uid
+          )
+        );
+
+        // Listing is the whole collection of personal data; admins only. A
+        // filler reaches their own entry by id, never by query.
+        allow list: if manages(eventId);
+
+        allow create: if request.auth != null &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.status == 'draft';
+
+        allow update: if manages(eventId) || (
+          request.auth != null &&
+          resource.data.uid == request.auth.uid &&
+          resource.data.status == 'draft' &&
+          request.resource.data.uid == resource.data.uid
+        );
+
+        allow delete: if manages(eventId);
+      }
     }
 
     /*
