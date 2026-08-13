@@ -86,8 +86,22 @@ service cloud.firestore {
        * submitted it is the organiser's record and the filler cannot alter it.
        */
       match /entries/{entryId} {
-        allow read: if manages(eventId) ||
-          (request.auth != null && resource.data.uid == request.auth.uid);
+        /*
+         * `resource == null` is load-bearing. On a get for a document that does
+         * not exist, resource is null, so resource.data.uid throws and the rule
+         * denies -- meaning a first-time filler is refused the very read that
+         * tells the app they have nothing yet. Reading a missing document
+         * returns nothing, so allowing it discloses nothing.
+         */
+        allow get: if manages(eventId) || (
+          request.auth != null && (
+            resource == null || resource.data.uid == request.auth.uid
+          )
+        );
+
+        // Listing is the whole collection of personal data; admins only. A
+        // filler reaches their own entry by id, never by query.
+        allow list: if manages(eventId);
 
         allow create: if request.auth != null &&
           request.resource.data.uid == request.auth.uid &&
