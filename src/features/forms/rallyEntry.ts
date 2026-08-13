@@ -19,11 +19,10 @@ const DRIVERS_ONLY: Party[] = [
  * out on paper, which stay visible but unfillable so the screen still maps onto
  * the printed form an organiser is holding.
  *
- * Two readings worth confirming against the paper original, since they are
- * inferred from the shading rather than stated:
- *   - "Entrant name" applies only to the Entrant column.
- *   - "Date of birth" is not asked of the Entrant, an entrant often being a
- *     team or company rather than a person.
+ * The Entrant column is name-only, confirmed by the organiser: an entrant is
+ * frequently a team or company, so nothing else in that column applies to it.
+ * Everything a person would supply -- names, date of birth, address, contacts,
+ * next of kin -- is asked of the drivers instead.
  */
 export const rallyEntryForm: FormDefinition = {
   id: 'rally-entry',
@@ -51,6 +50,7 @@ export const rallyEntryForm: FormDefinition = {
           key: 'familyName',
           label: 'Family name',
           kind: 'text',
+          notApplicableTo: ['entrant'],
           requiredFor: ['driver'],
           autoComplete: 'family-name',
         },
@@ -58,6 +58,7 @@ export const rallyEntryForm: FormDefinition = {
           key: 'firstName',
           label: 'First name',
           kind: 'text',
+          notApplicableTo: ['entrant'],
           requiredFor: ['driver'],
           autoComplete: 'given-name',
         },
@@ -72,6 +73,7 @@ export const rallyEntryForm: FormDefinition = {
           key: 'passportNationality',
           label: 'Passport nationality',
           kind: 'text',
+          notApplicableTo: ['entrant'],
           requiredFor: ['driver'],
           autoComplete: 'country-name',
         },
@@ -88,7 +90,8 @@ export const rallyEntryForm: FormDefinition = {
           key: 'address',
           label: 'Physical / postal address',
           kind: 'text',
-          requiredFor: ['entrant'],
+          notApplicableTo: ['entrant'],
+          requiredFor: ['driver'],
           autoComplete: 'street-address',
         },
         {
@@ -96,15 +99,26 @@ export const rallyEntryForm: FormDefinition = {
           label: 'Telephone in Uganda',
           kind: 'tel',
           help: 'Reachable during the event',
+          notApplicableTo: ['entrant'],
           requiredFor: ['driver'],
           autoComplete: 'tel',
         },
-        { key: 'phoneUsual', label: 'Telephone (usual)', kind: 'tel', autoComplete: 'tel' },
+        // Optional for everyone: a competitor with one number should not be
+        // made to invent a second.
+        {
+          key: 'phoneUsual',
+          label: 'Telephone (usual)',
+          kind: 'tel',
+          help: 'Optional',
+          notApplicableTo: ['entrant'],
+          autoComplete: 'tel',
+        },
         {
           key: 'email',
           label: 'Email address',
           kind: 'email',
-          requiredFor: ['entrant', 'driver'],
+          notApplicableTo: ['entrant'],
+          requiredFor: ['driver'],
           autoComplete: 'email',
         },
         {
@@ -112,6 +126,7 @@ export const rallyEntryForm: FormDefinition = {
           label: 'Next of kin',
           kind: 'text',
           help: 'Name and contact number',
+          notApplicableTo: ['entrant'],
           requiredFor: ['driver', 'codriver'],
         },
       ],
@@ -151,13 +166,13 @@ export const rallyEntryForm: FormDefinition = {
         { key: 'make', label: 'Make', kind: 'text', required: true },
         { key: 'registrationNo', label: 'Registration no.', kind: 'text', required: true },
         { key: 'model', label: 'Model', kind: 'text', required: true },
-        { key: 'engineCapacity', label: 'Engine capacity', kind: 'text', required: true },
+        { key: 'engineCapacity', label: 'Engine capacity', kind: 'text' },
         { key: 'yearOfManufacture', label: 'Year of manufacture', kind: 'number' },
         { key: 'bodyNo', label: 'Body no.', kind: 'text' },
-        { key: 'groupClass', label: 'Group / class', kind: 'text', required: true },
+        { key: 'groupClass', label: 'Group / class', kind: 'text' },
         { key: 'engineNo', label: 'Engine no.', kind: 'text' },
         { key: 'homologationNo', label: 'Homologation no.', kind: 'text' },
-        { key: 'predominantColor', label: 'Predominant colour', kind: 'text', required: true },
+        { key: 'predominantColor', label: 'Predominant colour', kind: 'text' },
         { key: 'countryOfRegistration', label: 'Country of registration', kind: 'text' },
         { key: 'techPassportNo', label: 'Tech. passport no.', kind: 'text' },
       ],

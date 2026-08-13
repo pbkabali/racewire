@@ -154,7 +154,7 @@ export function FillFormPage() {
             autoFocus
             value={licenceInput}
             onChange={(e) => setLicenceInput(e.target.value)}
-            placeholder="UG1234"
+            placeholder="LICENSE NO."
             autoCapitalize="characters"
             className="w-full rounded-md border border-edge bg-bg px-3 py-2 font-mono text-fg placeholder:text-fg-subtle"
           />
