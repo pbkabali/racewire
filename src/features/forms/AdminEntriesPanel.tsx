@@ -1,5 +1,5 @@
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { getBlob, ref } from 'firebase/storage'
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { deleteObject, getBlob, ref } from 'firebase/storage'
 import { useEffect, useState } from 'react'
 
 import { db, eventCollections, eventPath } from '../../lib/firebase/db'
@@ -14,6 +14,7 @@ export function AdminEntriesPanel({ eventCode }: { eventCode: string }) {
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   useEffect(() => {
     const q = query(
@@ -54,6 +55,48 @@ export function AdminEntriesPanel({ eventCode }: { eventCode: string }) {
       setError(cause instanceof Error ? cause.message : 'Could not download')
     } finally {
       setDownloading(null)
+    }
+  }
+
+  /**
+   * Remove an entry entirely: signatures, PDF, then the record.
+   *
+   * Two reasons an organiser needs this. It frees the licence so the competitor
+   * can start again — entries are keyed by licence, so a stale one locks them
+   * out. And it is how personal data gets erased on request, which matters
+   * given what an entry holds.
+   */
+  async function remove(entry: FormEntry) {
+    if (
+      !window.confirm(
+        `Delete the entry for licence ${entry.licenceNumber}?\n\n` +
+          'The form, its signatures and the generated PDF are all removed. ' +
+          'The competitor will be able to start a new entry. This cannot be undone.',
+      )
+    ) {
+      return
+    }
+
+    setDeleting(entry.id)
+    setError(null)
+    try {
+      // Files first: a failure here leaves the entry visible, which is
+      // recoverable. The reverse orphans signatures with nothing pointing at
+      // them — and they are personal data nobody can then find to remove.
+      for (const path of [...Object.values(entry.signatures ?? {}), entry.pdfPath]) {
+        if (!path) continue
+        try {
+          await deleteObject(ref(storage, path))
+        } catch {
+          // Already gone is fine.
+        }
+      }
+
+      await deleteDoc(doc(db, eventPath(eventCode, eventCollections.entries), entry.id))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not delete the entry')
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -110,6 +153,15 @@ export function AdminEntriesPanel({ eventCode }: { eventCode: string }) {
                       {downloading === entry.id ? '…' : 'PDF'}
                     </button>
                   )}
+
+                  <button
+                    type="button"
+                    onClick={() => void remove(entry)}
+                    disabled={deleting === entry.id}
+                    className="flex-none text-xs font-semibold text-danger-text disabled:opacity-60"
+                  >
+                    {deleting === entry.id ? '…' : 'Delete'}
+                  </button>
                 </div>
 
                 {expanded === entry.id && <EntryDetail entry={entry} />}
@@ -140,6 +192,14 @@ export function AdminEntriesPanel({ eventCode }: { eventCode: string }) {
                 <span className="flex-none text-xs text-fg-subtle">
                   {entry.updatedAt?.toDate().toLocaleDateString() ?? ''}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => void remove(entry)}
+                  disabled={deleting === entry.id}
+                  className="flex-none text-xs font-semibold text-danger-text disabled:opacity-60"
+                >
+                  {deleting === entry.id ? '…' : 'Delete'}
+                </button>
               </li>
             ))}
           </ul>
