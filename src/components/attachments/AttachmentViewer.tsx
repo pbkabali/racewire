@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 
 import { downloadAttachment, type Attachment } from '../../lib/firebase/storage'
 import { Spinner } from './PdfLoading'
@@ -12,9 +12,18 @@ const PdfViewer = lazy(() =>
 export function AttachmentViewer({
   attachment,
   onClose,
+  action,
 }: {
   attachment: Attachment
   onClose: () => void
+  /**
+   * Optional primary action for this attachment, shown before Download.
+   *
+   * A slot rather than a `formType` prop: the viewer is shared with notice
+   * attachments and has no business knowing what a form is. The caller that
+   * does know supplies the button.
+   */
+  action?: ReactNode
 }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -45,6 +54,8 @@ export function AttachmentViewer({
         onClick={(event) => event.stopPropagation()}
       >
         <p className="min-w-0 flex-1 truncate text-sm font-semibold">{attachment.name}</p>
+
+        {action}
 
         <button
           type="button"

@@ -4,7 +4,9 @@ import {
   getDownloadURL,
   getStorage,
   ref,
+  uploadBytes,
   uploadBytesResumable,
+  uploadString,
   type FirebaseStorage,
   type UploadTask,
 } from 'firebase/storage'
@@ -110,6 +112,33 @@ export function uploadAttachment(file: File, folder = 'notices'): UploadHandle {
   })
 
   return { task, done }
+}
+
+/**
+ * Upload raw bytes or a data URL to an exact path, returning that path.
+ *
+ * Used for generated artefacts -- signatures and entry PDFs -- which differ
+ * from uploadAttachment in three ways: the caller chooses the path (so a resave
+ * overwrites rather than accumulating), no download URL is produced (these live
+ * behind admin-only rules and are fetched through the SDK), and the input is
+ * generated rather than user-picked so the MIME allow-list does not apply.
+ */
+export async function uploadDataUrl(
+  data: string | Uint8Array,
+  path: string,
+  contentType: string,
+): Promise<string> {
+  const objectRef = ref(storage, path)
+
+  if (typeof data === 'string') {
+    await uploadString(objectRef, data, 'data_url')
+  } else {
+    // Copied into a fresh ArrayBuffer: a Uint8Array view over a larger buffer
+    // would upload the whole buffer, not just the view.
+    await uploadBytes(objectRef, new Uint8Array(data).buffer as ArrayBuffer, { contentType })
+  }
+
+  return path
 }
 
 export function deleteAttachment(path: string): Promise<void> {

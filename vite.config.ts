@@ -35,7 +35,21 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,webp,woff2}'],
       },
       devOptions: {
-        enabled: true,
+        /*
+         * Off in dev, on purpose.
+         *
+         * A service worker in development buys nothing and breaks things in
+         * ways that look like application bugs. It has cost us twice: a stale
+         * registration served an outdated dynamic import ("Failed to fetch
+         * dynamically imported module"), and then intercepted Firebase's
+         * sendVerificationCode call so phone auth failed with
+         * network-request-failed alongside a 400.
+         *
+         * Production is unaffected and still ships the full worker; offline
+         * behaviour is tested against a deployed build, which is the only place
+         * it behaves realistically anyway.
+         */
+        enabled: false,
         type: 'module',
       },
       manifest: {

@@ -10,6 +10,9 @@ import {
   type EventStatus,
 } from '../events/types'
 
+/** Same deliberately-loose check as the entry form; see FormFiller.tsx. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
 /** yyyy-mm-dd from local parts; toISOString() would shift across midnight. */
 function toDateInput(stamp: Timestamp | null | undefined): string {
   if (!stamp) return ''
@@ -45,6 +48,8 @@ export function EventEditor({
   const [status, setStatus] = useState<EventStatus>(event?.status ?? 'upcoming')
   const [startsOn, setStartsOn] = useState(toDateInput(event?.startsOn))
   const [endsOn, setEndsOn] = useState(toDateInput(event?.endsOn))
+  const [contactEmail, setContactEmail] = useState(event?.contactEmail ?? '')
+  const [contactPhone, setContactPhone] = useState(event?.contactPhone ?? '')
   const [logo, setLogo] = useState<File | null>(null)
 
   const [busy, setBusy] = useState(false)
@@ -70,6 +75,12 @@ export function EventEditor({
       }
     }
     if (!name.trim()) return setError('A name is required.')
+    if (contactEmail.trim() && !EMAIL_PATTERN.test(contactEmail.trim())) {
+      // Worth catching here: a typo means every entry confirmation carries a
+      // reply-to that bounces, and nobody finds out until a competitor's reply
+      // vanishes.
+      return setError('That organiser email does not look like an address.')
+    }
 
     const target = editing ? event!.code : normalisedCode
     setBusy(true)
@@ -100,6 +111,8 @@ export function EventEditor({
         countryName: countryName.trim(),
         sportType,
         status,
+        contactEmail: contactEmail.trim(),
+        contactPhone: contactPhone.trim(),
         logoUrl,
         logoPath,
         // Local midnight, so the date shown matches the date typed.
@@ -126,6 +139,8 @@ export function EventEditor({
         setCountryName('')
         setStartsOn('')
         setEndsOn('')
+        setContactEmail('')
+        setContactPhone('')
         setLogo(null)
       }
     } catch (cause) {
@@ -136,8 +151,17 @@ export function EventEditor({
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-lg border border-edge bg-surface p-4">
-      <h2 className="font-semibold text-fg">{editing ? 'Event details' : 'Create an event'}</h2>
+    <form
+      onSubmit={submit}
+      // When creating, the caller supplies a dashed container that marks this
+      // out as a form rather than a record, so no second border here.
+      className={
+        editing
+          ? 'space-y-3 rounded-lg border border-edge bg-surface p-4'
+          : 'space-y-3 rounded-md bg-surface p-4'
+      }
+    >
+      {editing && <h2 className="font-semibold text-fg">Event details</h2>}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
@@ -265,6 +289,46 @@ export function EventEditor({
           />
         </label>
       </div>
+
+      <fieldset className="rounded-md border border-edge p-3">
+        <legend className="px-1 text-xs font-semibold tracking-wide text-fg-muted uppercase">
+          Organiser contact
+        </legend>
+        <p className="mb-3 text-xs text-fg-subtle">
+          Shown to competitors on every page of this event, and used as the reply-to on
+          entry confirmation emails — those are sent from a no-reply address, so without
+          this a competitor who replies gets silence. Both are public: use an address and
+          number the organiser is happy to publish.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+              Email
+            </span>
+            <input
+              type="email"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+              placeholder="entries@example.org"
+              className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg placeholder:text-fg-subtle"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+              Phone
+            </span>
+            <input
+              type="tel"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+              placeholder="+256 700 000 000"
+              className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg placeholder:text-fg-subtle"
+            />
+          </label>
+        </div>
+      </fieldset>
 
       <label className="block">
         <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">

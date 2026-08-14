@@ -21,6 +21,7 @@ import {
 import { useOnlineStatus } from '../../lib/hooks/useOnlineStatus'
 import type { EventDocument } from '../events/types'
 import { DocumentAdminRow, type DocumentEdits } from './DocumentAdminRow'
+import { FORM_DEFINITIONS } from '../forms/rallyEntry'
 import { FolderManager } from './FolderManager'
 import { groupDocuments, useDocuments } from './useDocuments'
 
@@ -36,6 +37,7 @@ export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
   const [documentDate, setDocumentDate] = useState('')
   const [folderId, setFolderId] = useState('')
   const [notes, setNotes] = useState('')
+  const [formType, setFormType] = useState('')
 
   const [progress, setProgress] = useState<number | null>(null)
   const [status, setStatus] = useState<string | null>(null)
@@ -100,6 +102,7 @@ export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
           : null,
         folderId: folderId || null,
         notes: notes.trim(),
+        formType: formType || null,
         fileName: uploaded.name,
         fileUrl: uploaded.url,
         filePath: uploaded.path,
@@ -115,6 +118,7 @@ export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
       setName('')
       setDocumentDate('')
       setNotes('')
+      setFormType('')
       if (fileRef.current) fileRef.current.value = ''
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Upload failed')
@@ -229,6 +233,28 @@ export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
             />
           </label>
         </div>
+
+        <label className="block">
+          <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+            Fillable form
+          </span>
+          <select
+            value={formType}
+            onChange={(e) => setFormType(e.target.value)}
+            className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg"
+          >
+            <option value="">Not a form — download only</option>
+            {Object.values(FORM_DEFINITIONS).map((definition) => (
+              <option key={definition.id} value={definition.id}>
+                {definition.label}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-fg-subtle">
+            Marking it a form adds a “Fill out” button beside Download, and people
+            complete it in the app instead of printing it.
+          </span>
+        </label>
 
         {progress !== null && (
           <div className="h-1 overflow-hidden rounded bg-surface-raised">

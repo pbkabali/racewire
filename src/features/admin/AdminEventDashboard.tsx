@@ -9,9 +9,13 @@ import { AdminDocumentsPanel } from '../documents/AdminDocumentsPanel'
 import { formatEventDates, type Event } from '../events/types'
 import { EventSharePanel } from './EventSharePanel'
 import { AdminNoticesPanel } from './AdminNoticesPanel'
+import { AdminEntriesPanel } from '../forms/AdminEntriesPanel'
+import { AdminLicencesPanel } from '../forms/AdminLicencesPanel'
 import { EventEditor } from './EventEditor'
 
-type Tab = 'notices' | 'documents' | 'share' | 'settings'
+const TABS = ['notices', 'documents', 'entries', 'licences', 'share', 'settings'] as const
+
+type Tab = (typeof TABS)[number]
 
 /**
  * Managing one event. Access is already checked by ProtectedRoute, which
@@ -64,14 +68,19 @@ export function AdminEventDashboard() {
         </div>
       </header>
 
-      <div role="tablist" className="flex gap-1 border-b border-edge">
-        {(['notices', 'documents', 'share', 'settings'] as Tab[]).map((value) => (
+      {/* Six tabs overflow a 390px phone, so the strip scrolls within itself
+          rather than pushing the page sideways. */}
+      <div
+        role="tablist"
+        className="-mx-4 flex gap-1 overflow-x-auto border-b border-edge px-4 sm:mx-0 sm:px-0"
+      >
+        {TABS.map((value) => (
           <button
             key={value}
             role="tab"
             aria-selected={tab === value}
             onClick={() => setTab(value)}
-            className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold capitalize transition-colors ${
+            className={`-mb-px flex-none border-b-2 px-3 py-2 text-sm font-semibold whitespace-nowrap capitalize transition-colors ${
               tab === value
                 ? 'border-accent text-fg'
                 : 'border-transparent text-fg-muted hover:text-fg'
@@ -84,6 +93,8 @@ export function AdminEventDashboard() {
 
       {tab === 'notices' && <AdminNoticesPanel eventCode={eventCode} />}
       {tab === 'documents' && <AdminDocumentsPanel eventCode={eventCode} />}
+      {tab === 'entries' && <AdminEntriesPanel eventCode={eventCode} />}
+      {tab === 'licences' && <AdminLicencesPanel eventCode={eventCode} />}
       {tab === 'share' &&
         (event ? (
           <EventSharePanel event={event} />

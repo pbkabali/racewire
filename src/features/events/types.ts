@@ -34,6 +34,23 @@ export type Event = {
   countryName: string
   sportType: string
   status: EventStatus
+  /**
+   * Where a competitor should reach the organiser of *this* event.
+   *
+   * Optional because events created before these fields existed do not have
+   * them, and because a new event is often set up before the organiser has
+   * decided which address to publish.
+   *
+   * The email is what confirmation emails set as reply-to: they are sent from
+   * a no-reply address on the app's own domain, and a competitor who replies
+   * to that gets silence. Per-event rather than one global address because the
+   * app carries several events at once and each has different organisers.
+   *
+   * Both are shown to the public, so use an address and number the organiser
+   * is content to publish -- not a personal mobile.
+   */
+  contactEmail?: string
+  contactPhone?: string
   /** Storage download URL. Empty string when no logo has been uploaded. */
   logoUrl: string
   /** Storage path, kept so the logo can be replaced or deleted later. */
@@ -64,6 +81,11 @@ export type EventDocument = {
   folderId: string | null
   /** Free text: revision note, applies-to, whatever the organiser needs. */
   notes: string
+  /**
+   * Set when this document is a fillable form, naming which one. Null for an
+   * ordinary document. See src/features/forms/ for the definitions.
+   */
+  formType?: string | null
 
   fileName: string
   fileUrl: string

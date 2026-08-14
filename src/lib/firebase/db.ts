@@ -52,6 +52,10 @@ export const eventCollections = {
   races: 'races',
   documents: 'documents',
   folders: 'folders',
+  /** Valid competition licences, keyed by normalised licence number. */
+  licences: 'licences',
+  /** Filled forms, draft and submitted. Personal data — never public. */
+  entries: 'entries',
 } as const
 
 type EventCollection = (typeof eventCollections)[keyof typeof eventCollections]

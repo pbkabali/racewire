@@ -8,7 +8,12 @@ import { EventPickerPage } from '../features/events/EventPickerPage'
 import { NoticesPage } from '../features/notices/NoticesPage'
 import { SchedulePage } from '../features/races/SchedulePage'
 import { ResultsPage } from '../features/results/ResultsPage'
-import { AdminEventDashboard, AdminEventList, LoginPage } from './lazyPages'
+import {
+  AdminEventDashboard,
+  AdminEventList,
+  FillFormPage,
+  LoginPage,
+} from './lazyPages'
 import { ProtectedRoute } from './ProtectedRoute'
 
 const lazy = (element: React.ReactNode) => (
@@ -28,6 +33,7 @@ export const router = createBrowserRouter([
       { index: true, element: <NoticesPage /> },
       { path: 'schedule', element: <SchedulePage /> },
       { path: 'docs', element: <DocumentsPage /> },
+      { path: 'docs/fill/:documentId', element: lazy(<FillFormPage />) },
       { path: 'results', element: <ResultsPage /> },
     ],
   },
