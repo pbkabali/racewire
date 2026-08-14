@@ -337,6 +337,12 @@ there):
      `onSchedule` function and so owns a Cloud Scheduler job
 3. Keys → **Add key** → JSON → download.
 
+**Not granted here: Secret Manager.** A deploy only needs it once a function
+binds a secret, and it is better granted per-secret than project-wide — see
+[Give the deployer access to the secret](#5-give-the-deployer-access-to-the-secret)
+in the email section. Skipping it now costs nothing; the deploy that first needs
+it fails with a clear 403 naming the secret.
+
 Miss one and the deploy fails partway: rules, indexes and hosting land, then
 functions error. Firebase deploys targets in sequence, so a partial success is
 normal for a permissions problem rather than an all-or-nothing rollback.
@@ -678,7 +684,47 @@ npx firebase-tools functions:secrets:set SENDGRID_API_KEY --project production
 The same applies to `POSTMARK_SERVER_TOKEN` if you switch providers — create it
 everywhere first, then add it to the `secrets` array.
 
-### 4. Check it
+### 4. Give the deployer access to the secret
+
+Creating the secret as yourself does not let **CI** see it. `github-deployer`
+has no Secret Manager permission from step 5b, so the first deploy after a
+secret is bound fails with:
+
+```
+Request to .../secrets/SENDGRID_API_KEY had HTTP Error: 403,
+Permission 'secretmanager.secrets.get' denied on resource (or it may not exist)
+```
+
+Cloud console → [Secret Manager](https://console.cloud.google.com/security/secret-manager)
+→ click **SENDGRID_API_KEY** → **Permissions** tab → **Grant access**:
+
+- Principal: `github-deployer@<project-id>.iam.gserviceaccount.com`
+- Role: **Secret Manager Admin**
+
+Or:
+
+```bash
+gcloud secrets add-iam-policy-binding SENDGRID_API_KEY \
+  --project racewire-stg \
+  --member "serviceAccount:github-deployer@racewire-stg.iam.gserviceaccount.com" \
+  --role roles/secretmanager.admin
+```
+
+Admin rather than Accessor, and on the secret rather than the project. The
+deployer does not read the value — it reads the secret's metadata and then
+grants the *functions runtime* account access to it, and granting IAM needs
+`setIamPolicy`, which Accessor does not include. Scoping to the one secret keeps
+a leaked deploy key from reaching any other.
+
+Repeat per project, and per secret.
+
+**Nothing ships from a failed deploy here.** This 403 happens while the CLI is
+still working out what to deploy, before hosting or rules are released, so the
+site carries on serving the previous version. That is not true of every deploy
+failure — one that fails partway through *deploying* leaves earlier targets
+live, which is why the ordering note in step 5b exists.
+
+### 5. Check it
 
 Submit a test entry and watch the logs:
 
