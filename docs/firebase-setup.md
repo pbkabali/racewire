@@ -598,12 +598,25 @@ If SendGrid locks you out, use Postmark: set `POSTMARK_SERVER_TOKEN` instead of
 
 1. Sign up at [sendgrid.com](https://sendgrid.com) and complete the account
    verification they ask for.
-2. **Settings → Sender Authentication.** Two options:
-   - **Domain authentication** (recommended): add the CNAME records they give
-     you to Namecheap for `racewire.app`. Mail then comes from your own domain
-     and lands in inboxes rather than spam.
-   - **Single sender verification**: quicker, verifies one address by email. Fine
-     for testing, noticeably worse deliverability.
+2. **Settings → Sender Authentication → Authenticate Your Domain.**
+   - DNS host: **Namecheap**. Link branding: **No** — that rewrites tracking
+     links onto your domain and needs extra records; it is for marketing email,
+     not entry confirmations.
+   - You get about three CNAMEs. **Namecheap appends the domain to whatever you
+     type in Host**, so enter only the part before `racewire.app`:
+
+     | Provider shows | Namecheap Host |
+     | --- | --- |
+     | `em1234.racewire.app` | `em1234` |
+     | `s1._domainkey.racewire.app` | `s1._domainkey` |
+     | `s2._domainkey.racewire.app` | `s2._domainkey` |
+
+     Paste values unchanged. Enter the full host and you create
+     `em1234.racewire.app.racewire.app`, which never verifies and gives no clue
+     why — the same trap as the Hosting TXT record in step 9.
+   - **Single sender verification** is the quicker alternative: it verifies one
+     address by email, with noticeably worse deliverability. Fine to test with,
+     not to run an entry list on.
 3. **Settings → API Keys → Create API Key.** Restricted access, with **Mail
    Send** permission only. Copy it — it is shown once.
 
