@@ -1,29 +1,22 @@
 import { getStorage } from 'firebase-admin/storage'
 import { logger } from 'firebase-functions'
 
+import { isEmailConfigured, sendEmail, type EmailAttachment } from './providers.js'
+
 /*
- * Entry confirmation email, via SendGrid's v3 API over plain fetch.
+ * Entry confirmation email.
  *
- * No SDK: the request is one JSON POST, and @sendgrid/mail would add a
- * dependency and cold-start weight to a function that sends a handful of
- * messages a day.
+ * Composition only -- which provider actually delivers it is decided in
+ * providers.ts, so being locked out of one account does not stop
+ * confirmations going.
  *
  * Configured through the environment rather than firebase-functions params, for
- * the same reason as everything else here -- an unset param prompts at deploy
+ * the same reason as everything else here: an unset param prompts at deploy
  * time and a bound-but-missing secret fails the whole deploy. Unset simply
  * means no email is sent, and that is logged.
  */
 
-const SENDGRID_ENDPOINT = 'https://api.sendgrid.com/v3/mail/send'
-
-const apiKey = () => process.env.SENDGRID_API_KEY ?? ''
-const fromAddress = () => process.env.ENTRY_EMAIL_FROM ?? ''
-const fromName = () => process.env.ENTRY_EMAIL_FROM_NAME || 'Racewire'
-const replyTo = () => process.env.ENTRY_EMAIL_REPLY_TO ?? ''
-
-export function isEmailConfigured(): boolean {
-  return Boolean(apiKey() && fromAddress())
-}
+export { isEmailConfigured } from './providers.js'
 
 export type EntryConfirmation = {
   to: string
@@ -39,7 +32,7 @@ export type EntryConfirmation = {
 
 export async function sendEntryConfirmation(entry: EntryConfirmation): Promise<void> {
   if (!isEmailConfigured()) {
-    logger.warn('entry confirmation not sent: SENDGRID_API_KEY or ENTRY_EMAIL_FROM unset')
+    logger.warn('entry confirmation not sent: no email provider configured')
     return
   }
 
@@ -50,8 +43,7 @@ export async function sendEntryConfirmation(entry: EntryConfirmation): Promise<v
     return
   }
 
-  const attachments: { content: string; filename: string; type: string; disposition: string }[] =
-    []
+  const attachments: EmailAttachment[] = []
 
   if (entry.pdfPath) {
     try {
@@ -59,8 +51,7 @@ export async function sendEntryConfirmation(entry: EntryConfirmation): Promise<v
       attachments.push({
         content: buffer.toString('base64'),
         filename: `entry-${entry.licenceNumber}.pdf`,
-        type: 'application/pdf',
-        disposition: 'attachment',
+        contentType: 'application/pdf',
       })
     } catch (cause) {
       // Send the confirmation anyway. Knowing the entry arrived matters more
@@ -69,8 +60,8 @@ export async function sendEntryConfirmation(entry: EntryConfirmation): Promise<v
     }
   }
 
-  // Deduplicated and self-excluded: SendGrid rejects the whole request if the
-  // same address appears twice across to/cc.
+  // Deduplicated and self-excluded: providers reject the whole request if the
+  // same address appears in both to and cc.
   const seen = new Set([entry.to.toLowerCase()])
   const cc = (entry.cc ?? [])
     .filter((address): address is string => Boolean(address?.trim()))
@@ -82,34 +73,14 @@ export async function sendEntryConfirmation(entry: EntryConfirmation): Promise<v
     })
     .map((address) => ({ email: address.trim() }))
 
-  const subject = `Entry received — ${entry.eventName}`
-
-  const response = await fetch(SENDGRID_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${apiKey()}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      personalizations: [
-        { to: [{ email: entry.to }], ...(cc.length ? { cc } : {}) },
-      ],
-      from: { email: fromAddress(), name: fromName() },
-      ...(replyTo() ? { reply_to: { email: replyTo() } } : {}),
-      subject,
-      content: [
-        { type: 'text/plain', value: plainBody(entry, attachments.length > 0) },
-        { type: 'text/html', value: htmlBody(entry, attachments.length > 0) },
-      ],
-      ...(attachments.length ? { attachments } : {}),
-    }),
+  await sendEmail({
+    to: entry.to,
+    cc: cc.map((recipient) => recipient.email),
+    subject: `Entry received — ${entry.eventName}`,
+    text: plainBody(entry, attachments.length > 0),
+    html: htmlBody(entry, attachments.length > 0),
+    attachments,
   })
-
-  if (!response.ok) {
-    // SendGrid returns the reason in the body; the status alone is not enough
-    // to tell an unverified sender from a bad key.
-    throw new Error(`SendGrid ${response.status}: ${await response.text()}`)
-  }
 
   logger.info('entry confirmation sent', {
     to: entry.to,

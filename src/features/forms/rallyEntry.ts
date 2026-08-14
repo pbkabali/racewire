@@ -122,7 +122,11 @@ export const rallyEntryForm: FormDefinition = {
           key: 'email',
           label: 'Email address',
           kind: 'email',
-          help: 'A copy of the submitted entry is sent here',
+          helpFor: {
+            entrant: 'A copy of the completed entry is emailed here on submission',
+            driver: 'Copied on the confirmation email',
+            codriver: 'Copied on the confirmation email',
+          },
           requiredFor: ['entrant', 'driver', 'codriver'],
           autoComplete: 'email',
         },

@@ -580,11 +580,19 @@ When an entry is submitted, `onEntrySubmitted` emails the entrant a copy with
 the generated PDF attached, copying the crew. Until this is set up nothing is
 sent and a warning is logged — the entry itself is unaffected.
 
-**Why SendGrid.** Roughly 100 emails a day free, which covers a rally's entries
-where Postmark's ~100 a *month* would not. Postmark has better transactional
-deliverability if you outgrow the free tier and want to pay; Mailgun's free tier
-has changed too often to build on. Check the current allowance on their pricing
-page — these move.
+**Two providers are supported**, chosen with `EMAIL_PROVIDER`, or automatically
+by whichever credential is present. Supporting both costs almost nothing — each
+is a single JSON POST — and removes a single point of failure.
+
+| | Free tier | Notes |
+| --- | --- | --- |
+| **SendGrid** | ~100/day | Most generous, but **auto-blocks many new free accounts before first use** (`ERR_USER_FORBIDDEN_ACCESS` at login). Appeals are slow. |
+| **Postmark** | ~100/month | Best transactional deliverability. Accounts are reviewed by a human, usually quickly. Tighter allowance. |
+
+Check current allowances on their pricing pages — these move.
+
+If SendGrid locks you out, use Postmark: set `POSTMARK_SERVER_TOKEN` instead of
+`SENDGRID_API_KEY` and nothing else changes.
 
 ### 1. Create the sender
 
@@ -602,7 +610,9 @@ page — these move.
 ### 2. Store the key and the sender
 
 ```bash
-npx firebase-tools functions:secrets:set SENDGRID_API_KEY --project staging
+# whichever provider you are using
+npx firebase-tools functions:secrets:set SENDGRID_API_KEY     --project staging
+npx firebase-tools functions:secrets:set POSTMARK_SERVER_TOKEN --project staging
 ```
 
 The from-address is not secret, so it goes in `functions/.env` alongside the
@@ -624,10 +634,10 @@ Creating a secret does not deliver it to the function. In
 
 ```ts
 import { defineSecret } from 'firebase-functions/params'
-const sendgridKey = defineSecret('SENDGRID_API_KEY')
+const emailKey = defineSecret('POSTMARK_SERVER_TOKEN') // or SENDGRID_API_KEY
 
 export const onEntrySubmitted = onDocumentUpdated(
-  { document: 'events/{eventId}/entries/{entryId}', secrets: [sendgridKey] },
+  { document: 'events/{eventId}/entries/{entryId}', secrets: [emailKey] },
   ...
 )
 ```
@@ -644,8 +654,10 @@ Submit a test entry and watch the logs:
 npx firebase-tools functions:log --only onEntrySubmitted --project staging
 ```
 
-`entry confirmation sent` means it worked. A SendGrid 403 almost always means
-the from-address is not verified; a 401 means the key is wrong.
+`entry confirmation sent` means it worked. A 403 almost always means the
+from-address is not verified with that provider; a 401 means the key is wrong.
+Postmark also rejects mail on the wrong stream — leave `POSTMARK_MESSAGE_STREAM`
+unset unless you have created a custom one.
 
 ---
 
