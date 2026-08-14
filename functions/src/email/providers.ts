@@ -26,6 +26,12 @@ export type OutboundEmail = {
   text: string
   html: string
   attachments: EmailAttachment[]
+  /**
+   * Overrides ENTRY_EMAIL_REPLY_TO. Per-message because the right address
+   * depends on which event the mail is about, and one deployment carries
+   * several events with different organisers.
+   */
+  replyTo?: string
 }
 
 export type ProviderName = 'sendgrid' | 'postmark'
@@ -35,7 +41,10 @@ const postmarkToken = () => process.env.POSTMARK_SERVER_TOKEN ?? ''
 
 export const fromAddress = () => process.env.ENTRY_EMAIL_FROM ?? ''
 export const fromName = () => process.env.ENTRY_EMAIL_FROM_NAME || 'Racewire'
+/** Fallback reply-to, for mail with no better per-event address. */
 export const replyTo = () => process.env.ENTRY_EMAIL_REPLY_TO ?? ''
+
+const replyToFor = (message: OutboundEmail) => message.replyTo?.trim() || replyTo()
 
 /** Explicit choice if given, otherwise whichever provider has a credential. */
 export function activeProvider(): ProviderName | null {
@@ -78,7 +87,7 @@ async function sendViaSendgrid(message: OutboundEmail): Promise<void> {
         },
       ],
       from: { email: fromAddress(), name: fromName() },
-      ...(replyTo() ? { reply_to: { email: replyTo() } } : {}),
+      ...(replyToFor(message) ? { reply_to: { email: replyToFor(message) } } : {}),
       subject: message.subject,
       content: [
         { type: 'text/plain', value: message.text },
@@ -117,7 +126,7 @@ async function sendViaPostmark(message: OutboundEmail): Promise<void> {
       From: fromName() ? `${fromName()} <${fromAddress()}>` : fromAddress(),
       To: message.to,
       ...(message.cc.length ? { Cc: message.cc.join(',') } : {}),
-      ...(replyTo() ? { ReplyTo: replyTo() } : {}),
+      ...(replyToFor(message) ? { ReplyTo: replyToFor(message) } : {}),
       Subject: message.subject,
       TextBody: message.text,
       HtmlBody: message.html,

@@ -28,6 +28,13 @@ export type EntryConfirmation = {
   competitorName: string
   /** Storage path of the generated PDF. Omitted if generation failed. */
   pdfPath: string | null
+  /**
+   * Contact details recorded on the event. The email becomes the reply-to --
+   * this is sent from a no-reply address, and an entry confirmation is exactly
+   * the sort of mail people reply to with questions.
+   */
+  organiserEmail?: string
+  organiserPhone?: string
 }
 
 export async function sendEntryConfirmation(entry: EntryConfirmation): Promise<void> {
@@ -80,13 +87,32 @@ export async function sendEntryConfirmation(entry: EntryConfirmation): Promise<v
     text: plainBody(entry, attachments.length > 0),
     html: htmlBody(entry, attachments.length > 0),
     attachments,
+    replyTo: entry.organiserEmail?.trim(),
   })
 
   logger.info('entry confirmation sent', {
     to: entry.to,
     licence: entry.licenceNumber,
     attached: attachments.length > 0,
+    replyTo: entry.organiserEmail?.trim() || '(env default)',
   })
+}
+
+/**
+ * How to reach the organiser, as one sentence.
+ *
+ * Falls back to naming the event when neither detail is recorded, since
+ * "contact the organiser" with no way to do so is not much help. Events created
+ * before the contact fields existed hit this until someone fills them in.
+ */
+function contactLine(entry: EntryConfirmation): string {
+  const email = entry.organiserEmail?.trim()
+  const phone = entry.organiserPhone?.trim()
+  const ways = [email, phone].filter(Boolean).join(' or ')
+
+  return ways
+    ? `This is an automated message. For any questions, contact the organiser on ${ways}.`
+    : `This is an automated message — please contact the organisers of ${entry.eventName} with any questions.`
 }
 
 function plainBody(entry: EntryConfirmation, attached: boolean): string {
@@ -103,7 +129,7 @@ function plainBody(entry: EntryConfirmation, attached: boolean): string {
     'The entry is only valid once the entry fee is paid and the receipt reaches',
     'the organiser before the closing date.',
     '',
-    'This is an automated message — please contact the organiser with any questions.',
+    contactLine(entry),
   ].join('\n')
 }
 
@@ -131,9 +157,39 @@ function htmlBody(entry: EntryConfirmation, attached: boolean): string {
     organiser before the closing date.
   </p>
   <p style="font-size:12px;color:#666;margin:0">
-    This is an automated message — please contact the organiser with any questions.
+    ${contactHtml(entry)}
   </p>
 </div>`.trim()
+}
+
+/**
+ * The contact line with the details made clickable.
+ *
+ * Built by escaping the plain sentence and then linking the details within it,
+ * so the two versions of the email cannot drift apart. Escaping first means the
+ * anchors are the only markup that survives.
+ */
+function contactHtml(entry: EntryConfirmation): string {
+  const email = entry.organiserEmail?.trim()
+  const phone = entry.organiserPhone?.trim()
+  let line = escapeHtml(contactLine(entry))
+
+  if (email) {
+    line = line.replace(
+      escapeHtml(email),
+      `<a href="mailto:${escapeHtml(email)}" style="color:#856800">${escapeHtml(email)}</a>`,
+    )
+  }
+  if (phone) {
+    line = line.replace(
+      escapeHtml(phone),
+      `<a href="tel:${escapeHtml(phone.replace(/\s+/g, ''))}" style="color:#856800">${escapeHtml(
+        phone,
+      )}</a>`,
+    )
+  }
+
+  return line
 }
 
 function escapeHtml(value: string): string {

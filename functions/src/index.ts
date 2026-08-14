@@ -157,16 +157,22 @@ export const onEntrySubmitted = onDocumentUpdated(
       .collection('events')
       .doc(event.params.eventId)
       .get()
+    const eventData = eventSnap.data() ?? {}
 
     try {
       await sendEntryConfirmation({
         to,
         cc: [values['contact.email.driver'], values['contact.email.codriver']],
-        eventName: (eventSnap.data()?.name as string) ?? event.params.eventId,
+        eventName: (eventData.name as string) ?? event.params.eventId,
         eventCode: event.params.eventId,
         licenceNumber: (after.licenceNumber as string) ?? '',
         competitorName: name,
         pdfPath: (after.pdfPath as string | null) ?? null,
+        // Set on the event by its organiser. Absent on events created before
+        // the fields existed, in which case the reply-to falls back to
+        // ENTRY_EMAIL_REPLY_TO.
+        organiserEmail: (eventData.contactEmail as string | undefined) ?? '',
+        organiserPhone: (eventData.contactPhone as string | undefined) ?? '',
       })
     } catch (cause) {
       // Never rethrow: a retry would re-send to anyone who did receive it, and

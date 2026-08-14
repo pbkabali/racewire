@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
 
 import { useAuth } from '../../app/providers/useAuth'
+import { EventContact } from '../../features/events/EventContact'
 import { formatEventDates } from '../../features/events/types'
 import { useEvent } from '../../features/events/useEvent'
 import { canManageEvent } from '../../lib/firebase/auth'
@@ -87,6 +88,7 @@ export function AppShell() {
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-4 pb-20 sm:px-6 sm:pb-8">
         <InstallPrompt />
         <Outlet />
+        <EventContact />
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-edge bg-surface pb-[env(safe-area-inset-bottom)] sm:hidden">

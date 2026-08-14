@@ -642,7 +642,16 @@ Three things worth knowing here:
 - **The sending address needs no mailbox.** `no-reply@racewire.app` can send
   without existing as an inbox. What matters is that the *domain* is
   authenticated with the provider — otherwise every send is rejected with a 403.
-- **Set a reply-to somebody reads.** A competitor who replies to a no-reply
+- **Reply-to is normally set per event, not here.** Each event carries an
+  organiser email and phone (Manage → Event details → Organiser contact), and
+  the event's email becomes the reply-to on its own entry confirmations. That
+  is the right level: one deployment carries several events with different
+  organisers, and a competitor replying about the Rwenzori rally should not
+  reach whoever runs the next one.
+
+  `ENTRY_EMAIL_REPLY_TO` is only the fallback, used when an event has no
+  contact email — which includes every event created before the field existed.
+  Set it to something monitored anyway: a competitor who replies to a no-reply
   address gets silence, and entry questions are exactly what they will reply
   with. Namecheap email forwarding is already configured on the domain, so an
   address there can forward to a real inbox.
