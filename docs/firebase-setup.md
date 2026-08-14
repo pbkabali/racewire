@@ -628,17 +628,29 @@ npx firebase-tools functions:secrets:set SENDGRID_API_KEY     --project staging
 npx firebase-tools functions:secrets:set POSTMARK_SERVER_TOKEN --project staging
 ```
 
-The from-address is not secret, so it goes in `functions/.env` alongside the
-Sheets settings:
+The from-address is not secret, so it is a **repo variable**, not a secret. CI
+writes it into `functions/.env` at deploy time:
 
-```
-ENTRY_EMAIL_FROM=entries@racewire.app
-ENTRY_EMAIL_FROM_NAME=Racewire
-ENTRY_EMAIL_REPLY_TO=organiser@example.com
+```bash
+gh variable set ENTRY_EMAIL_FROM      --env staging --body 'no-reply@racewire.app'
+gh variable set ENTRY_EMAIL_FROM_NAME --env staging --body 'Racewire'
+gh variable set ENTRY_EMAIL_REPLY_TO  --env staging --body 'someone@example.com'
 ```
 
-`ENTRY_EMAIL_FROM` **must be an address SendGrid has verified**, or every send
-is rejected with a 403.
+Three things worth knowing here:
+
+- **The sending address needs no mailbox.** `no-reply@racewire.app` can send
+  without existing as an inbox. What matters is that the *domain* is
+  authenticated with the provider — otherwise every send is rejected with a 403.
+- **Set a reply-to somebody reads.** A competitor who replies to a no-reply
+  address gets silence, and entry questions are exactly what they will reply
+  with. Namecheap email forwarding is already configured on the domain, so an
+  address there can forward to a real inbox.
+- **`functions/.env` is not `functions/.env.local`.** The first is deployed and
+  becomes runtime env vars; the second is read by the emulators and
+  `functions:shell` only and is never deployed. `functions:shell` creates
+  `.env.local` automatically, so that may be the only one present locally —
+  see `functions/.env.example`.
 
 ### 3. Bind the secret
 
