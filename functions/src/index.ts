@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { logger, setGlobalOptions } from 'firebase-functions'
+import { defineSecret } from 'firebase-functions/params'
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
@@ -41,6 +42,15 @@ setGlobalOptions({ region: 'europe-west1', maxInstances: 10 })
  * Until then each provider reports isConfigured() false and dispatch skips it.
  */
 const messagingSecrets: never[] = []
+
+/**
+ * The one secret that is bound, because entry confirmations are in use.
+ *
+ * Postmark is deliberately not bound: providers.ts supports it, but binding a
+ * secret nobody has created would fail every deploy. Create
+ * POSTMARK_SERVER_TOKEN in each project first, then add it here.
+ */
+const sendgridApiKey = defineSecret('SENDGRID_API_KEY')
 
 /**
  * Fan out every new notice.
@@ -117,10 +127,16 @@ export const grantAdmin = onCall(async (request) => {
 export const onEntrySubmitted = onDocumentUpdated(
   {
     document: 'events/{eventId}/entries/{entryId}',
-    // Bind SENDGRID_API_KEY here once it exists in Secret Manager. Empty by
-    // design: a bound-but-missing secret fails the entire deploy, hosting and
-    // rules included. See docs/firebase-setup.md.
-    secrets: [],
+    /*
+     * Binding is what puts the key in process.env, where providers.ts reads it.
+     * Creating the secret is not enough on its own.
+     *
+     * THE SECRET MUST EXIST IN EVERY PROJECT THIS DEPLOYS TO. A bound-but-
+     * missing secret fails the whole deploy, and a Firebase deploy is atomic --
+     * hosting and rules go down with it. Before this reaches a new project:
+     *   npx firebase-tools functions:secrets:set SENDGRID_API_KEY --project <alias>
+     */
+    secrets: [sendgridApiKey],
   },
   async (event) => {
     const before = event.data?.before.data()

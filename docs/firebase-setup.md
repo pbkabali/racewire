@@ -661,24 +661,22 @@ Three things worth knowing here:
   `.env.local` automatically, so that may be the only one present locally —
   see `functions/.env.example`.
 
-### 3. Bind the secret
+### 3. The secret must exist in every project
 
-Creating a secret does not deliver it to the function. In
-`functions/src/index.ts`, on `onEntrySubmitted`:
+`SENDGRID_API_KEY` is already bound in `functions/src/index.ts` — binding is
+what puts it in `process.env`, and creating the secret alone does nothing.
 
-```ts
-import { defineSecret } from 'firebase-functions/params'
-const emailKey = defineSecret('POSTMARK_SERVER_TOKEN') // or SENDGRID_API_KEY
+The consequence is that **the secret must exist in every project this code
+deploys to**. A bound-but-missing secret is a deploy-time dependency: it fails
+the whole deploy, and a Firebase deploy is atomic, so hosting and rules go down
+with it. Before this reaches a new project, or before a first merge to `main`:
 
-export const onEntrySubmitted = onDocumentUpdated(
-  { document: 'events/{eventId}/entries/{entryId}', secrets: [emailKey] },
-  ...
-)
+```bash
+npx firebase-tools functions:secrets:set SENDGRID_API_KEY --project production
 ```
 
-Then deploy. **Do not add it before the secret exists** — a bound-but-missing
-secret is a deploy-time dependency and fails the whole deploy, hosting and rules
-included.
+The same applies to `POSTMARK_SERVER_TOKEN` if you switch providers — create it
+everywhere first, then add it to the `secrets` array.
 
 ### 4. Check it
 
