@@ -116,12 +116,18 @@ export const rallyEntryForm: FormDefinition = {
           notApplicableTo: ['entrant'],
           autoComplete: 'tel',
         },
+        // Required of the entrant too: the submitted entry is emailed to this
+        // address, so a blank one means the confirmation has nowhere to go.
         {
           key: 'email',
           label: 'Email address',
           kind: 'email',
-          help: 'Optional for the entrant',
-          requiredFor: ['driver', 'codriver'],
+          helpFor: {
+            entrant: 'A copy of the completed entry is emailed here on submission',
+            driver: 'Copied on the confirmation email',
+            codriver: 'Copied on the confirmation email',
+          },
+          requiredFor: ['entrant', 'driver', 'codriver'],
           autoComplete: 'email',
         },
         {

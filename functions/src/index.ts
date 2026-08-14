@@ -1,10 +1,13 @@
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { setGlobalOptions } from 'firebase-functions'
-import { onDocumentCreated } from 'firebase-functions/v2/firestore'
+import { getFirestore } from 'firebase-admin/firestore'
+import { logger, setGlobalOptions } from 'firebase-functions'
+import { defineSecret } from 'firebase-functions/params'
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 
+import { sendEntryConfirmation } from './email/sendEntryConfirmation.js'
 import { dispatchNotice } from './notify/dispatch.js'
 import { syncRacesFromSheet } from './sheets/sync.js'
 
@@ -39,6 +42,15 @@ setGlobalOptions({ region: 'europe-west1', maxInstances: 10 })
  * Until then each provider reports isConfigured() false and dispatch skips it.
  */
 const messagingSecrets: never[] = []
+
+/**
+ * The one secret that is bound, because entry confirmations are in use.
+ *
+ * Postmark is deliberately not bound: providers.ts supports it, but binding a
+ * secret nobody has created would fail every deploy. Create
+ * POSTMARK_SERVER_TOKEN in each project first, then add it here.
+ */
+const sendgridApiKey = defineSecret('SENDGRID_API_KEY')
 
 /**
  * Fan out every new notice.
@@ -100,3 +112,91 @@ export const grantAdmin = onCall(async (request) => {
   await getAuth().setCustomUserClaims(uid, { admin: admin !== false })
   return { uid, admin: admin !== false }
 })
+
+/**
+ * Email the entrant a copy of their entry when it is submitted.
+ *
+ * Server-side rather than from the browser, for three reasons: the API key must
+ * never reach a client, the generated PDF lives behind admin-only Storage rules
+ * that a competitor cannot read, and a confirmation should still be sent if the
+ * person closes the tab the moment they press Submit.
+ *
+ * Fires on update rather than create because an entry is created as a draft and
+ * becomes submitted later, so the transition is what matters.
+ */
+export const onEntrySubmitted = onDocumentUpdated(
+  {
+    document: 'events/{eventId}/entries/{entryId}',
+    /*
+     * Binding is what puts the key in process.env, where providers.ts reads it.
+     * Creating the secret is not enough on its own.
+     *
+     * THE SECRET MUST EXIST IN EVERY PROJECT THIS DEPLOYS TO. A bound-but-
+     * missing secret fails the whole deploy, and a Firebase deploy is atomic --
+     * hosting and rules go down with it. Before this reaches a new project:
+     *   npx firebase-tools functions:secrets:set SENDGRID_API_KEY --project <alias>
+     */
+    secrets: [sendgridApiKey],
+  },
+  async (event) => {
+    const before = event.data?.before.data()
+    const after = event.data?.after.data()
+    if (!after) return
+
+    // Only the draft -> submitted transition. Later edits by an organiser must
+    // not re-send, or a correction becomes a second confirmation.
+    if (before?.status === 'submitted' || after.status !== 'submitted') return
+
+    const values = (after.values ?? {}) as Record<string, string>
+
+    /*
+     * The entrant's address is the addressee -- it is required precisely so
+     * this has somewhere to go. The crew are copied so a driver entered by a
+     * team still gets their own copy.
+     */
+    const to = values['contact.email.entrant']?.trim() || values['contact.email.driver']?.trim()
+
+    if (!to) {
+      logger.warn('entry submitted with no email address', {
+        entryId: event.params.entryId,
+        licence: after.licenceNumber,
+      })
+      return
+    }
+
+    const name =
+      [values['identity.firstName.driver'], values['identity.familyName.driver']]
+        .filter(Boolean)
+        .join(' ') || values['identity.entrantName.entrant'] || ''
+
+    const eventSnap = await getFirestore()
+      .collection('events')
+      .doc(event.params.eventId)
+      .get()
+    const eventData = eventSnap.data() ?? {}
+
+    try {
+      await sendEntryConfirmation({
+        to,
+        cc: [values['contact.email.driver'], values['contact.email.codriver']],
+        eventName: (eventData.name as string) ?? event.params.eventId,
+        eventCode: event.params.eventId,
+        licenceNumber: (after.licenceNumber as string) ?? '',
+        competitorName: name,
+        pdfPath: (after.pdfPath as string | null) ?? null,
+        // Set on the event by its organiser. Absent on events created before
+        // the fields existed, in which case the reply-to falls back to
+        // ENTRY_EMAIL_REPLY_TO.
+        organiserEmail: (eventData.contactEmail as string | undefined) ?? '',
+        organiserPhone: (eventData.contactPhone as string | undefined) ?? '',
+      })
+    } catch (cause) {
+      // Never rethrow: a retry would re-send to anyone who did receive it, and
+      // the entry itself is safely stored either way.
+      logger.error('entry confirmation failed', {
+        entryId: event.params.entryId,
+        cause,
+      })
+    }
+  },
+)

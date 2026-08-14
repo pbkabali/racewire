@@ -8,6 +8,14 @@ import { useFormEntry } from './useFormEntry'
 
 type Values = Record<string, string>
 
+/*
+ * Deliberately loose. The only thing worth rejecting here is an address that
+ * cannot possibly deliver -- no @, no domain, a stray space. Tighter patterns
+ * reject valid addresses (apostrophes, new TLDs, plus-addressing) and the real
+ * proof of an address is whether mail arrives.
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+
 /** `sectionId.rowKey.party` for matrices, `sectionId.fieldKey` otherwise. */
 const matrixKey = (sectionId: string, rowKey: string, party: PartyKey) =>
   `${sectionId}.${rowKey}.${party}`
@@ -51,6 +59,7 @@ export function FormFiller({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [missing, setMissing] = useState<string[]>([])
+  const [malformed, setMalformed] = useState<string[]>([])
 
   // Hydrate once, from the draft. Doing this in an effect keyed on `entry`
   // would overwrite what the person is typing each time the draft saves.
@@ -92,6 +101,39 @@ export function FormFiller({
     [values],
   )
 
+  /** Filled-in emails that could not deliver, as human-readable labels. */
+  const malformedFor = useMemo(
+    () =>
+      (target: FormSection): string[] => {
+        const bad: string[] = []
+        const check = (value: string | undefined, label: string) => {
+          // Only what was actually typed; blanks are the required check's job.
+          if (value?.trim() && !EMAIL_PATTERN.test(value.trim())) bad.push(label)
+        }
+
+        if (target.kind === 'matrix') {
+          for (const row of target.rows) {
+            if (row.kind !== 'email') continue
+            for (const party of target.parties) {
+              if (row.notApplicableTo?.includes(party.key)) continue
+              check(
+                values[matrixKey(target.id, row.key, party.key)],
+                `${row.label} — ${party.label}`,
+              )
+            }
+          }
+        } else if (target.kind === 'fields') {
+          for (const field of target.fields) {
+            if (field.kind !== 'email') continue
+            check(values[`${target.id}.${field.key}`], field.label)
+          }
+        }
+
+        return bad
+      },
+    [values],
+  )
+
   async function save() {
     setSaving(true)
     setError(null)
@@ -107,11 +149,14 @@ export function FormFiller({
 
   async function next() {
     const gaps = missingFor(section)
-    if (gaps.length) {
+    const bad = malformedFor(section)
+    if (gaps.length || bad.length) {
       setMissing(gaps)
+      setMalformed(bad)
       return
     }
     setMissing([])
+    setMalformed([])
     await save()
     setStep((s) => Math.min(s + 1, definition.sections.length - 1))
     window.scrollTo({ top: 0 })
@@ -121,9 +166,15 @@ export function FormFiller({
     // Re-check every step, not just this one: someone can reach the end with an
     // earlier section left incomplete by using Back.
     const gaps = definition.sections.flatMap(missingFor)
-    if (gaps.length) {
+    const bad = definition.sections.flatMap(malformedFor)
+    if (gaps.length || bad.length) {
       setMissing(gaps)
-      setError('Some required answers are missing. They are listed below.')
+      setMalformed(bad)
+      setError(
+        gaps.length
+          ? 'Some required answers are missing. They are listed below.'
+          : 'Some email addresses do not look right. They are listed below.',
+      )
       return
     }
     if (!acknowledged) {
@@ -292,8 +343,10 @@ export function FormFiller({
                           autoComplete={row.autoComplete}
                           className="mt-1 w-full rounded-md border border-edge bg-surface px-3 py-2 text-sm text-fg"
                         />
-                        {row.help && (
-                          <span className="mt-1 block text-xs text-fg-subtle">{row.help}</span>
+                        {(row.helpFor?.[party.key] ?? row.help) && (
+                          <span className="mt-1 block text-xs text-fg-subtle">
+                            {row.helpFor?.[party.key] ?? row.help}
+                          </span>
                         )}
                       </label>
                     )
@@ -389,15 +442,32 @@ export function FormFiller({
           </div>
         )}
 
-        {missing.length > 0 && (
-          <div role="alert" className="rounded border border-danger bg-bg p-3">
-            <p className="text-sm font-semibold text-danger-text">Still needed:</p>
-            <ul className="mt-1 list-inside list-disc text-xs text-danger-text">
-              {missing.slice(0, 8).map((gap) => (
-                <li key={gap}>{gap}</li>
-              ))}
-              {missing.length > 8 && <li>and {missing.length - 8} more</li>}
-            </ul>
+        {(missing.length > 0 || malformed.length > 0) && (
+          <div role="alert" className="space-y-2 rounded border border-danger bg-bg p-3">
+            {missing.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-danger-text">Still needed:</p>
+                <ul className="mt-1 list-inside list-disc text-xs text-danger-text">
+                  {missing.slice(0, 8).map((gap) => (
+                    <li key={gap}>{gap}</li>
+                  ))}
+                  {missing.length > 8 && <li>and {missing.length - 8} more</li>}
+                </ul>
+              </div>
+            )}
+
+            {malformed.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold text-danger-text">
+                  Check these email addresses:
+                </p>
+                <ul className="mt-1 list-inside list-disc text-xs text-danger-text">
+                  {malformed.map((label) => (
+                    <li key={label}>{label}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

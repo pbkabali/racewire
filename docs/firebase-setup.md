@@ -574,6 +574,125 @@ Two things it deliberately does **not** do:
 
 ---
 
+## Emailing entry confirmations (SendGrid)
+
+When an entry is submitted, `onEntrySubmitted` emails the entrant a copy with
+the generated PDF attached, copying the crew. Until this is set up nothing is
+sent and a warning is logged — the entry itself is unaffected.
+
+**Two providers are supported**, chosen with `EMAIL_PROVIDER`, or automatically
+by whichever credential is present. Supporting both costs almost nothing — each
+is a single JSON POST — and removes a single point of failure.
+
+| | Free tier | Notes |
+| --- | --- | --- |
+| **SendGrid** | ~100/day | Most generous, but **auto-blocks many new free accounts before first use** (`ERR_USER_FORBIDDEN_ACCESS` at login). Appeals are slow. |
+| **Postmark** | ~100/month | Best transactional deliverability. Accounts are reviewed by a human, usually quickly. Tighter allowance. |
+
+Check current allowances on their pricing pages — these move.
+
+If SendGrid locks you out, use Postmark: set `POSTMARK_SERVER_TOKEN` instead of
+`SENDGRID_API_KEY` and nothing else changes.
+
+### 1. Create the sender
+
+1. Sign up at [sendgrid.com](https://sendgrid.com) and complete the account
+   verification they ask for.
+2. **Settings → Sender Authentication → Authenticate Your Domain.**
+   - DNS host: **Namecheap**. Link branding: **No** — that rewrites tracking
+     links onto your domain and needs extra records; it is for marketing email,
+     not entry confirmations.
+   - You get about three CNAMEs. **Namecheap appends the domain to whatever you
+     type in Host**, so enter only the part before `racewire.app`:
+
+     | Provider shows | Namecheap Host |
+     | --- | --- |
+     | `em1234.racewire.app` | `em1234` |
+     | `s1._domainkey.racewire.app` | `s1._domainkey` |
+     | `s2._domainkey.racewire.app` | `s2._domainkey` |
+
+     Paste values unchanged. Enter the full host and you create
+     `em1234.racewire.app.racewire.app`, which never verifies and gives no clue
+     why — the same trap as the Hosting TXT record in step 9.
+   - **Single sender verification** is the quicker alternative: it verifies one
+     address by email, with noticeably worse deliverability. Fine to test with,
+     not to run an entry list on.
+3. **Settings → API Keys → Create API Key.** Restricted access, with **Mail
+   Send** permission only. Copy it — it is shown once.
+
+### 2. Store the key and the sender
+
+```bash
+# whichever provider you are using
+npx firebase-tools functions:secrets:set SENDGRID_API_KEY     --project staging
+npx firebase-tools functions:secrets:set POSTMARK_SERVER_TOKEN --project staging
+```
+
+The from-address is not secret, so it is a **repo variable**, not a secret. CI
+writes it into `functions/.env` at deploy time:
+
+```bash
+gh variable set ENTRY_EMAIL_FROM      --env staging --body 'no-reply@racewire.app'
+gh variable set ENTRY_EMAIL_FROM_NAME --env staging --body 'Racewire'
+gh variable set ENTRY_EMAIL_REPLY_TO  --env staging --body 'someone@example.com'
+```
+
+Three things worth knowing here:
+
+- **The sending address needs no mailbox.** `no-reply@racewire.app` can send
+  without existing as an inbox. What matters is that the *domain* is
+  authenticated with the provider — otherwise every send is rejected with a 403.
+- **Reply-to is normally set per event, not here.** Each event carries an
+  organiser email and phone (Manage → Event details → Organiser contact), and
+  the event's email becomes the reply-to on its own entry confirmations. That
+  is the right level: one deployment carries several events with different
+  organisers, and a competitor replying about the Rwenzori rally should not
+  reach whoever runs the next one.
+
+  `ENTRY_EMAIL_REPLY_TO` is only the fallback, used when an event has no
+  contact email — which includes every event created before the field existed.
+  Set it to something monitored anyway: a competitor who replies to a no-reply
+  address gets silence, and entry questions are exactly what they will reply
+  with. Namecheap email forwarding is already configured on the domain, so an
+  address there can forward to a real inbox.
+- **`functions/.env` is not `functions/.env.local`.** The first is deployed and
+  becomes runtime env vars; the second is read by the emulators and
+  `functions:shell` only and is never deployed. `functions:shell` creates
+  `.env.local` automatically, so that may be the only one present locally —
+  see `functions/.env.example`.
+
+### 3. The secret must exist in every project
+
+`SENDGRID_API_KEY` is already bound in `functions/src/index.ts` — binding is
+what puts it in `process.env`, and creating the secret alone does nothing.
+
+The consequence is that **the secret must exist in every project this code
+deploys to**. A bound-but-missing secret is a deploy-time dependency: it fails
+the whole deploy, and a Firebase deploy is atomic, so hosting and rules go down
+with it. Before this reaches a new project, or before a first merge to `main`:
+
+```bash
+npx firebase-tools functions:secrets:set SENDGRID_API_KEY --project production
+```
+
+The same applies to `POSTMARK_SERVER_TOKEN` if you switch providers — create it
+everywhere first, then add it to the `secrets` array.
+
+### 4. Check it
+
+Submit a test entry and watch the logs:
+
+```bash
+npx firebase-tools functions:log --only onEntrySubmitted --project staging
+```
+
+`entry confirmation sent` means it worked. A 403 almost always means the
+from-address is not verified with that provider; a 401 means the key is wrong.
+Postmark also rejects mail on the wrong stream — leave `POSTMARK_MESSAGE_STREAM`
+unset unless you have created a custom one.
+
+---
+
 ## Storage CORS — required before any PDF will open
 
 **Do this once per project.** A new bucket has no CORS configuration, and a

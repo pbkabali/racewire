@@ -120,15 +120,30 @@ jobs:
 
       - name: Write functions runtime env
         # firebase-tools ships functions/.env values as runtime env vars.
-        # Written here rather than committed so each environment gets its own,
-        # and so an unset SHEET_ID stays empty instead of prompting at deploy.
+        # Written here rather than committed: the file is gitignored, each
+        # environment needs its own values, and an unset one stays empty rather
+        # than prompting at deploy.
+        #
+        # Note functions/.env.local is NOT this file -- that one is read by the
+        # emulators and shell only, and never deployed.
+        #
+        # Only non-secret settings belong here. API keys go to Secret Manager
+        # via functions:secrets:set and are bound in index.ts.
         env:
           SHEET_ID: ${{ vars.SHEET_ID }}
           SHEET_RANGE: ${{ vars.SHEET_RANGE }}
+          ENTRY_EMAIL_FROM: ${{ vars.ENTRY_EMAIL_FROM }}
+          ENTRY_EMAIL_FROM_NAME: ${{ vars.ENTRY_EMAIL_FROM_NAME }}
+          ENTRY_EMAIL_REPLY_TO: ${{ vars.ENTRY_EMAIL_REPLY_TO }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
         run: |
           {
             echo "SHEET_ID=${SHEET_ID}"
             echo "SHEET_RANGE=${SHEET_RANGE:-Races!A1:E}"
+            echo "ENTRY_EMAIL_FROM=${ENTRY_EMAIL_FROM}"
+            echo "ENTRY_EMAIL_FROM_NAME=${ENTRY_EMAIL_FROM_NAME:-Racewire}"
+            echo "ENTRY_EMAIL_REPLY_TO=${ENTRY_EMAIL_REPLY_TO}"
+            echo "EMAIL_PROVIDER=${EMAIL_PROVIDER}"
           } > functions/.env
 
       - name: Authenticate to Firebase
@@ -179,15 +194,30 @@ jobs:
 
       - name: Write functions runtime env
         # firebase-tools ships functions/.env values as runtime env vars.
-        # Written here rather than committed so each environment gets its own,
-        # and so an unset SHEET_ID stays empty instead of prompting at deploy.
+        # Written here rather than committed: the file is gitignored, each
+        # environment needs its own values, and an unset one stays empty rather
+        # than prompting at deploy.
+        #
+        # Note functions/.env.local is NOT this file -- that one is read by the
+        # emulators and shell only, and never deployed.
+        #
+        # Only non-secret settings belong here. API keys go to Secret Manager
+        # via functions:secrets:set and are bound in index.ts.
         env:
           SHEET_ID: ${{ vars.SHEET_ID }}
           SHEET_RANGE: ${{ vars.SHEET_RANGE }}
+          ENTRY_EMAIL_FROM: ${{ vars.ENTRY_EMAIL_FROM }}
+          ENTRY_EMAIL_FROM_NAME: ${{ vars.ENTRY_EMAIL_FROM_NAME }}
+          ENTRY_EMAIL_REPLY_TO: ${{ vars.ENTRY_EMAIL_REPLY_TO }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
         run: |
           {
             echo "SHEET_ID=${SHEET_ID}"
             echo "SHEET_RANGE=${SHEET_RANGE:-Races!A1:E}"
+            echo "ENTRY_EMAIL_FROM=${ENTRY_EMAIL_FROM}"
+            echo "ENTRY_EMAIL_FROM_NAME=${ENTRY_EMAIL_FROM_NAME:-Racewire}"
+            echo "ENTRY_EMAIL_REPLY_TO=${ENTRY_EMAIL_REPLY_TO}"
+            echo "EMAIL_PROVIDER=${EMAIL_PROVIDER}"
           } > functions/.env
 
       - name: Authenticate to Firebase

@@ -27,8 +27,14 @@ export type MatrixRow = {
   key: string
   label: string
   kind: FieldKind
-  /** Hint text under the label. */
+  /** Hint text under the label, for every party. */
   help?: string
+  /**
+   * Hint text for one party only, overriding `help`. Some rows mean different
+   * things per column -- the entrant's email is where the confirmation is sent,
+   * the crew's are merely copied.
+   */
+  helpFor?: Partial<Record<PartyKey, string>>
   /**
    * Parties this row does NOT apply to — the greyed cells on the paper form.
    * Rendered as visibly unavailable rather than omitted, so the on-screen form
