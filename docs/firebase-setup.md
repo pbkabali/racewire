@@ -574,6 +574,81 @@ Two things it deliberately does **not** do:
 
 ---
 
+## Emailing entry confirmations (SendGrid)
+
+When an entry is submitted, `onEntrySubmitted` emails the entrant a copy with
+the generated PDF attached, copying the crew. Until this is set up nothing is
+sent and a warning is logged — the entry itself is unaffected.
+
+**Why SendGrid.** Roughly 100 emails a day free, which covers a rally's entries
+where Postmark's ~100 a *month* would not. Postmark has better transactional
+deliverability if you outgrow the free tier and want to pay; Mailgun's free tier
+has changed too often to build on. Check the current allowance on their pricing
+page — these move.
+
+### 1. Create the sender
+
+1. Sign up at [sendgrid.com](https://sendgrid.com) and complete the account
+   verification they ask for.
+2. **Settings → Sender Authentication.** Two options:
+   - **Domain authentication** (recommended): add the CNAME records they give
+     you to Namecheap for `racewire.app`. Mail then comes from your own domain
+     and lands in inboxes rather than spam.
+   - **Single sender verification**: quicker, verifies one address by email. Fine
+     for testing, noticeably worse deliverability.
+3. **Settings → API Keys → Create API Key.** Restricted access, with **Mail
+   Send** permission only. Copy it — it is shown once.
+
+### 2. Store the key and the sender
+
+```bash
+npx firebase-tools functions:secrets:set SENDGRID_API_KEY --project staging
+```
+
+The from-address is not secret, so it goes in `functions/.env` alongside the
+Sheets settings:
+
+```
+ENTRY_EMAIL_FROM=entries@racewire.app
+ENTRY_EMAIL_FROM_NAME=Racewire
+ENTRY_EMAIL_REPLY_TO=organiser@example.com
+```
+
+`ENTRY_EMAIL_FROM` **must be an address SendGrid has verified**, or every send
+is rejected with a 403.
+
+### 3. Bind the secret
+
+Creating a secret does not deliver it to the function. In
+`functions/src/index.ts`, on `onEntrySubmitted`:
+
+```ts
+import { defineSecret } from 'firebase-functions/params'
+const sendgridKey = defineSecret('SENDGRID_API_KEY')
+
+export const onEntrySubmitted = onDocumentUpdated(
+  { document: 'events/{eventId}/entries/{entryId}', secrets: [sendgridKey] },
+  ...
+)
+```
+
+Then deploy. **Do not add it before the secret exists** — a bound-but-missing
+secret is a deploy-time dependency and fails the whole deploy, hosting and rules
+included.
+
+### 4. Check it
+
+Submit a test entry and watch the logs:
+
+```bash
+npx firebase-tools functions:log --only onEntrySubmitted --project staging
+```
+
+`entry confirmation sent` means it worked. A SendGrid 403 almost always means
+the from-address is not verified; a 401 means the key is wrong.
+
+---
+
 ## Storage CORS — required before any PDF will open
 
 **Do this once per project.** A new bucket has no CORS configuration, and a

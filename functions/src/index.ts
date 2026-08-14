@@ -1,10 +1,12 @@
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { setGlobalOptions } from 'firebase-functions'
-import { onDocumentCreated } from 'firebase-functions/v2/firestore'
+import { getFirestore } from 'firebase-admin/firestore'
+import { logger, setGlobalOptions } from 'firebase-functions'
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 
+import { sendEntryConfirmation } from './email/sendEntryConfirmation.js'
 import { dispatchNotice } from './notify/dispatch.js'
 import { syncRacesFromSheet } from './sheets/sync.js'
 
@@ -100,3 +102,79 @@ export const grantAdmin = onCall(async (request) => {
   await getAuth().setCustomUserClaims(uid, { admin: admin !== false })
   return { uid, admin: admin !== false }
 })
+
+/**
+ * Email the entrant a copy of their entry when it is submitted.
+ *
+ * Server-side rather than from the browser, for three reasons: the API key must
+ * never reach a client, the generated PDF lives behind admin-only Storage rules
+ * that a competitor cannot read, and a confirmation should still be sent if the
+ * person closes the tab the moment they press Submit.
+ *
+ * Fires on update rather than create because an entry is created as a draft and
+ * becomes submitted later, so the transition is what matters.
+ */
+export const onEntrySubmitted = onDocumentUpdated(
+  {
+    document: 'events/{eventId}/entries/{entryId}',
+    // Bind SENDGRID_API_KEY here once it exists in Secret Manager. Empty by
+    // design: a bound-but-missing secret fails the entire deploy, hosting and
+    // rules included. See docs/firebase-setup.md.
+    secrets: [],
+  },
+  async (event) => {
+    const before = event.data?.before.data()
+    const after = event.data?.after.data()
+    if (!after) return
+
+    // Only the draft -> submitted transition. Later edits by an organiser must
+    // not re-send, or a correction becomes a second confirmation.
+    if (before?.status === 'submitted' || after.status !== 'submitted') return
+
+    const values = (after.values ?? {}) as Record<string, string>
+
+    /*
+     * The entrant's address is the addressee -- it is required precisely so
+     * this has somewhere to go. The crew are copied so a driver entered by a
+     * team still gets their own copy.
+     */
+    const to = values['contact.email.entrant']?.trim() || values['contact.email.driver']?.trim()
+
+    if (!to) {
+      logger.warn('entry submitted with no email address', {
+        entryId: event.params.entryId,
+        licence: after.licenceNumber,
+      })
+      return
+    }
+
+    const name =
+      [values['identity.firstName.driver'], values['identity.familyName.driver']]
+        .filter(Boolean)
+        .join(' ') || values['identity.entrantName.entrant'] || ''
+
+    const eventSnap = await getFirestore()
+      .collection('events')
+      .doc(event.params.eventId)
+      .get()
+
+    try {
+      await sendEntryConfirmation({
+        to,
+        cc: [values['contact.email.driver'], values['contact.email.codriver']],
+        eventName: (eventSnap.data()?.name as string) ?? event.params.eventId,
+        eventCode: event.params.eventId,
+        licenceNumber: (after.licenceNumber as string) ?? '',
+        competitorName: name,
+        pdfPath: (after.pdfPath as string | null) ?? null,
+      })
+    } catch (cause) {
+      // Never rethrow: a retry would re-send to anyone who did receive it, and
+      // the entry itself is safely stored either way.
+      logger.error('entry confirmation failed', {
+        entryId: event.params.entryId,
+        cause,
+      })
+    }
+  },
+)
