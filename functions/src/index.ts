@@ -7,7 +7,9 @@ import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/fire
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 
+import { loadEntryPdf } from './email/entryPdf.js'
 import { sendEntryConfirmation } from './email/sendEntryConfirmation.js'
+import { sendEntryNotification } from './email/sendEntryNotification.js'
 import { dispatchNotice } from './notify/dispatch.js'
 import { syncRacesFromSheet } from './sheets/sync.js'
 
@@ -114,7 +116,8 @@ export const grantAdmin = onCall(async (request) => {
 })
 
 /**
- * Email the entrant a copy of their entry when it is submitted.
+ * Two emails when an entry is submitted: a copy to the entrant, and a
+ * notification to the organiser.
  *
  * Server-side rather than from the browser, for three reasons: the API key must
  * never reach a client, the generated PDF lives behind admin-only Storage rules
@@ -148,6 +151,7 @@ export const onEntrySubmitted = onDocumentUpdated(
     if (before?.status === 'submitted' || after.status !== 'submitted') return
 
     const values = (after.values ?? {}) as Record<string, string>
+    const licenceNumber = (after.licenceNumber as string) ?? ''
 
     /*
      * The entrant's address is the addressee -- it is required precisely so
@@ -155,14 +159,6 @@ export const onEntrySubmitted = onDocumentUpdated(
      * team still gets their own copy.
      */
     const to = values['contact.email.entrant']?.trim() || values['contact.email.driver']?.trim()
-
-    if (!to) {
-      logger.warn('entry submitted with no email address', {
-        entryId: event.params.entryId,
-        licence: after.licenceNumber,
-      })
-      return
-    }
 
     const name =
       [values['identity.firstName.driver'], values['identity.familyName.driver']]
@@ -174,29 +170,66 @@ export const onEntrySubmitted = onDocumentUpdated(
       .doc(event.params.eventId)
       .get()
     const eventData = eventSnap.data() ?? {}
+    const eventName = (eventData.name as string) ?? event.params.eventId
+
+    // Fetched once and shared: two downloads of the same object would double
+    // the egress and could hand the two recipients different attachments.
+    const attachment = await loadEntryPdf((after.pdfPath as string | null) ?? null, licenceNumber)
+
+    /*
+     * Two independent sends, each in its own try/catch, and never rethrowing.
+     *
+     * Independent because a bounce on one address must not swallow the other:
+     * a competitor left wondering whether their entry arrived, or an organiser
+     * who never hears about it, are different failures and neither should be
+     * caused by the other. Never rethrowing because a retry would re-send to
+     * whoever did receive it, and the entry is safely stored regardless.
+     */
+    if (to) {
+      try {
+        await sendEntryConfirmation({
+          to,
+          cc: [values['contact.email.driver'], values['contact.email.codriver']],
+          eventName,
+          eventCode: event.params.eventId,
+          licenceNumber,
+          competitorName: name,
+          attachment,
+          // Set on the event by its organiser. Absent on events created before
+          // the fields existed, in which case the reply-to falls back to
+          // ENTRY_EMAIL_REPLY_TO.
+          organiserEmail: (eventData.contactEmail as string | undefined) ?? '',
+          organiserPhone: (eventData.contactPhone as string | undefined) ?? '',
+        })
+      } catch (cause) {
+        logger.error('entry confirmation failed', { entryId: event.params.entryId, cause })
+      }
+    } else {
+      // Not a reason to stop: the organiser still needs to know, and an entry
+      // with no address is exactly the one they will want to chase.
+      logger.warn('entry submitted with no email address', {
+        entryId: event.params.entryId,
+        licence: licenceNumber,
+      })
+    }
 
     try {
-      await sendEntryConfirmation({
-        to,
-        cc: [values['contact.email.driver'], values['contact.email.codriver']],
-        eventName: (eventData.name as string) ?? event.params.eventId,
+      await sendEntryNotification({
+        to: (eventData.contactEmail as string | undefined) ?? '',
+        eventName,
         eventCode: event.params.eventId,
-        licenceNumber: (after.licenceNumber as string) ?? '',
+        licenceNumber,
         competitorName: name,
-        pdfPath: (after.pdfPath as string | null) ?? null,
-        // Set on the event by its organiser. Absent on events created before
-        // the fields existed, in which case the reply-to falls back to
-        // ENTRY_EMAIL_REPLY_TO.
-        organiserEmail: (eventData.contactEmail as string | undefined) ?? '',
-        organiserPhone: (eventData.contactPhone as string | undefined) ?? '',
+        verifiedPhone: (after.phone as string) ?? '',
+        entrantEmail: to ?? '',
+        car: [values['car.make'], values['car.model'], values['car.registrationNo']]
+          .map((part) => part?.trim())
+          .filter(Boolean)
+          .join(' · '),
+        attachment,
       })
     } catch (cause) {
-      // Never rethrow: a retry would re-send to anyone who did receive it, and
-      // the entry itself is safely stored either way.
-      logger.error('entry confirmation failed', {
-        entryId: event.params.entryId,
-        cause,
-      })
+      logger.error('entry notification failed', { entryId: event.params.entryId, cause })
     }
   },
 )
