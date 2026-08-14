@@ -1,6 +1,6 @@
-import { getStorage } from 'firebase-admin/storage'
 import { logger } from 'firebase-functions'
 
+import { escapeHtml, mailtoLink, telLink } from './html.js'
 import { isEmailConfigured, sendEmail, type EmailAttachment } from './providers.js'
 
 /*
@@ -26,8 +26,8 @@ export type EntryConfirmation = {
   eventCode: string
   licenceNumber: string
   competitorName: string
-  /** Storage path of the generated PDF. Omitted if generation failed. */
-  pdfPath: string | null
+  /** The generated PDF, already fetched. Null if generation or download failed. */
+  attachment: EmailAttachment | null
   /**
    * Contact details recorded on the event. The email becomes the reply-to --
    * this is sent from a no-reply address, and an entry confirmation is exactly
@@ -50,22 +50,9 @@ export async function sendEntryConfirmation(entry: EntryConfirmation): Promise<v
     return
   }
 
-  const attachments: EmailAttachment[] = []
-
-  if (entry.pdfPath) {
-    try {
-      const [buffer] = await getStorage().bucket().file(entry.pdfPath).download()
-      attachments.push({
-        content: buffer.toString('base64'),
-        filename: `entry-${entry.licenceNumber}.pdf`,
-        contentType: 'application/pdf',
-      })
-    } catch (cause) {
-      // Send the confirmation anyway. Knowing the entry arrived matters more
-      // than the attachment, and the organiser has the PDF regardless.
-      logger.error('could not attach entry PDF', { path: entry.pdfPath, cause })
-    }
-  }
+  // Sent regardless of whether the PDF made it: knowing the entry arrived
+  // matters more than the attachment, and the organiser has it either way.
+  const attachments = entry.attachment ? [entry.attachment] : []
 
   // Deduplicated and self-excluded: providers reject the whole request if the
   // same address appears in both to and cc.
@@ -174,28 +161,8 @@ function contactHtml(entry: EntryConfirmation): string {
   const phone = entry.organiserPhone?.trim()
   let line = escapeHtml(contactLine(entry))
 
-  if (email) {
-    line = line.replace(
-      escapeHtml(email),
-      `<a href="mailto:${escapeHtml(email)}" style="color:#856800">${escapeHtml(email)}</a>`,
-    )
-  }
-  if (phone) {
-    line = line.replace(
-      escapeHtml(phone),
-      `<a href="tel:${escapeHtml(phone.replace(/\s+/g, ''))}" style="color:#856800">${escapeHtml(
-        phone,
-      )}</a>`,
-    )
-  }
+  if (email) line = line.replace(escapeHtml(email), mailtoLink(email))
+  if (phone) line = line.replace(escapeHtml(phone), telLink(phone))
 
   return line
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }

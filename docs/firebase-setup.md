@@ -641,6 +641,9 @@ writes it into `functions/.env` at deploy time:
 gh variable set ENTRY_EMAIL_FROM      --env staging --body 'no-reply@racewire.app'
 gh variable set ENTRY_EMAIL_FROM_NAME --env staging --body 'Racewire'
 gh variable set ENTRY_EMAIL_REPLY_TO  --env staging --body 'someone@example.com'
+
+# Only needed where a custom domain is in use; defaults to <project-id>.web.app
+gh variable set APP_BASE_URL --env production --body 'https://racewire.app'
 ```
 
 Three things worth knowing here:

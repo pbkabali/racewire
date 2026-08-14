@@ -136,6 +136,7 @@ jobs:
           ENTRY_EMAIL_FROM_NAME: ${{ vars.ENTRY_EMAIL_FROM_NAME }}
           ENTRY_EMAIL_REPLY_TO: ${{ vars.ENTRY_EMAIL_REPLY_TO }}
           EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
         run: |
           {
             echo "SHEET_ID=${SHEET_ID}"
@@ -144,6 +145,7 @@ jobs:
             echo "ENTRY_EMAIL_FROM_NAME=${ENTRY_EMAIL_FROM_NAME:-Racewire}"
             echo "ENTRY_EMAIL_REPLY_TO=${ENTRY_EMAIL_REPLY_TO}"
             echo "EMAIL_PROVIDER=${EMAIL_PROVIDER}"
+            echo "APP_BASE_URL=${APP_BASE_URL}"
           } > functions/.env
 
       - name: Authenticate to Firebase
@@ -210,6 +212,7 @@ jobs:
           ENTRY_EMAIL_FROM_NAME: ${{ vars.ENTRY_EMAIL_FROM_NAME }}
           ENTRY_EMAIL_REPLY_TO: ${{ vars.ENTRY_EMAIL_REPLY_TO }}
           EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
         run: |
           {
             echo "SHEET_ID=${SHEET_ID}"
@@ -218,6 +221,7 @@ jobs:
             echo "ENTRY_EMAIL_FROM_NAME=${ENTRY_EMAIL_FROM_NAME:-Racewire}"
             echo "ENTRY_EMAIL_REPLY_TO=${ENTRY_EMAIL_REPLY_TO}"
             echo "EMAIL_PROVIDER=${EMAIL_PROVIDER}"
+            echo "APP_BASE_URL=${APP_BASE_URL}"
           } > functions/.env
 
       - name: Authenticate to Firebase
