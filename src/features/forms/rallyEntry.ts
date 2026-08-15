@@ -1,4 +1,4 @@
-import type { FormDefinition, Party } from './types'
+import type { FormDefinition, LicenceDetails, Party } from './types'
 
 const PARTIES: Party[] = [
   { key: 'entrant', label: 'Entrant' },
@@ -237,4 +237,49 @@ export const FORM_DEFINITIONS: Record<string, FormDefinition> = {
 export function getFormDefinition(id: string | null | undefined): FormDefinition | null {
   if (!id) return null
   return FORM_DEFINITIONS[id] ?? null
+}
+
+type CrewMember = { number: string; details: LicenceDetails | null }
+
+/**
+ * Answers this form can take from the registration list, keyed in its own
+ * `sectionId.rowKey.party` shape — which is why this lives here and not with
+ * the licence code: a renamed row must break next to the definition it
+ * belongs to.
+ *
+ * Everything seeded here remains editable. Country of issue on both licence
+ * blocks is seeded from nationality — right for nearly the whole championship
+ * list, and a visible default beats an empty box the filler skips.
+ */
+export function prefillFromLicences(
+  driver: CrewMember,
+  codriver: CrewMember | null,
+): Record<string, string> {
+  const values: Record<string, string> = {}
+
+  const fill = (party: 'driver' | 'codriver', member: CrewMember) => {
+    const put = (key: string, value: string | undefined) => {
+      if (value?.trim()) values[`${key}.${party}`] = value.trim()
+    }
+
+    put('competitionLicence.number', member.number)
+    if (!member.details) return
+
+    put('identity.firstName', member.details.firstName)
+    put('identity.familyName', member.details.lastName)
+    put('identity.dateOfBirth', member.details.dateOfBirth)
+    put('identity.passportNationality', member.details.country)
+    put('contact.phoneUganda', member.details.phone)
+    put('contact.email', member.details.email)
+    put('drivingLicence.number', member.details.permitNumber)
+    put('drivingLicence.expiry', member.details.permitExpiry)
+    if (member.details.permitNumber) {
+      put('drivingLicence.country', member.details.country)
+    }
+    put('competitionLicence.country', member.details.country)
+  }
+
+  fill('driver', driver)
+  if (codriver) fill('codriver', codriver)
+  return values
 }

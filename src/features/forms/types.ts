@@ -130,3 +130,32 @@ export type Licence = {
   active: boolean
   addedAt: Timestamp | null
 }
+
+/**
+ * The holder's personal details from the championship registration list,
+ * used to prefill the entry form.
+ *
+ * Kept in a subdocument (`licences/{number}/details/holder`), not on the
+ * licence itself: the licence document is world-readable by id so the entry
+ * gate works signed-out, and these fields must not travel with it. The details
+ * document requires a signed-in reader — in practice, someone who has passed
+ * the phone OTP.
+ *
+ * Dates are `yyyy-mm-dd` strings rather than Timestamps: they exist to seed
+ * `<input type="date">` fields, and a wall-clock-free string cannot shift a
+ * birthday across a timezone boundary.
+ */
+export type LicenceDetails = {
+  firstName: string
+  lastName: string
+  email: string
+  dateOfBirth: string
+  phone: string
+  country: string
+  club: string
+  /** 'Driver' or 'Co-Driver' on the registration list. */
+  competitorType: string
+  /** Driving permit, for the form's Driving licence section. */
+  permitNumber: string
+  permitExpiry: string
+}
