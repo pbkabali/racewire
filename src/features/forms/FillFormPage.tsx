@@ -7,8 +7,8 @@ import type { EventDocument } from '../events/types'
 import { useEvent } from '../events/useEvent'
 import { FormFiller } from './FormFiller'
 import { PhoneVerification } from './PhoneVerification'
-import { getFormDefinition } from './rallyEntry'
-import { checkLicence, type LicenceCheck } from './useLicences'
+import { getFormDefinition, prefillFromLicences } from './rallyEntry'
+import { checkLicence, fetchLicenceDetails, type LicenceCheck } from './useLicences'
 
 const REFUSALS: Record<Exclude<LicenceCheck, { ok: true }>['reason'], string> = {
   'not-found':
@@ -32,10 +32,13 @@ export function FillFormPage() {
   const [loading, setLoading] = useState(true)
 
   const [licenceInput, setLicenceInput] = useState('')
+  const [codriverInput, setCodriverInput] = useState('')
   const [checking, setChecking] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
   const [verified, setVerified] = useState<string | null>(null)
+  const [codriverNumber, setCodriverNumber] = useState<string | null>(null)
   const [identity, setIdentity] = useState<{ phone: string; uid: string } | null>(null)
+  const [prefill, setPrefill] = useState<Record<string, string> | null>(null)
   const [submitted, setSubmitted] = useState(false)
 
   useEffect(() => {
@@ -48,6 +51,33 @@ export function FillFormPage() {
       },
     )
   }, [event.code, documentId])
+
+  /*
+   * Details are fetched only once the phone OTP has passed: the rules require
+   * a signed-in reader, and asking earlier would be refused. A missing details
+   * document (a licence imported from the plain paste format) still yields a
+   * prefill — just the licence numbers themselves.
+   */
+  useEffect(() => {
+    if (!verified || !identity) return
+    let cancelled = false
+    void (async () => {
+      const driver = await fetchLicenceDetails(event.code, verified).catch(() => null)
+      const codriver = codriverNumber
+        ? await fetchLicenceDetails(event.code, codriverNumber).catch(() => null)
+        : null
+      if (cancelled) return
+      setPrefill(
+        prefillFromLicences(
+          { number: verified, details: driver },
+          codriverNumber ? { number: codriverNumber, details: codriver } : null,
+        ),
+      )
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [event.code, verified, identity, codriverNumber])
 
   const form = getFormDefinition(document?.formType)
 
@@ -64,11 +94,30 @@ export function FillFormPage() {
     setChecking(true)
     try {
       const result = await checkLicence(event.code, licenceInput)
-      if (result.ok) {
-        setVerified(result.licence.number)
-      } else {
+      if (!result.ok) {
         setRefusal(REFUSALS[result.reason])
+        return
       }
+
+      /*
+       * The co-driver's number is optional, but a number that fails the check
+       * is refused rather than quietly ignored: a typo silently producing an
+       * unprefilled form would read as the feature being broken. Clearing the
+       * field is the explicit way past.
+       */
+      if (codriverInput.trim()) {
+        const codriver = await checkLicence(event.code, codriverInput)
+        if (!codriver.ok) {
+          setRefusal(
+            'The co-driver licence was not found on the organiser’s list. ' +
+              'Check it, or clear that field to continue and fill their details by hand.',
+          )
+          return
+        }
+        setCodriverNumber(codriver.licence.number)
+      }
+
+      setVerified(result.licence.number)
     } catch {
       // A rules denial looks the same as a miss from here, and saying which
       // would confirm whether a given number exists.
@@ -120,16 +169,21 @@ export function FillFormPage() {
           </Link>
         </div>
       ) : verified && identity ? (
-        <FormFiller
-          definition={form}
-          eventCode={event.code}
-          eventName={event.name}
-          documentId={document.id}
-          uid={identity.uid}
-          phone={identity.phone}
-          licenceNumber={verified}
-          onSubmitted={() => setSubmitted(true)}
-        />
+        prefill ? (
+          <FormFiller
+            definition={form}
+            eventCode={event.code}
+            eventName={event.name}
+            documentId={document.id}
+            uid={identity.uid}
+            phone={identity.phone}
+            licenceNumber={verified}
+            prefill={prefill}
+            onSubmitted={() => setSubmitted(true)}
+          />
+        ) : (
+          <div className="h-64 animate-pulse rounded-lg bg-surface" />
+        )
       ) : verified ? (
         <div className="space-y-3">
           <p className="rounded-lg border border-edge bg-surface p-4 text-sm text-fg">
@@ -144,8 +198,8 @@ export function FillFormPage() {
           <div>
             <h2 className="font-semibold text-fg">Competition licence</h2>
             <p className="mt-0.5 text-sm text-fg-muted">
-              Enter the number on your competition licence. It must be on the
-              organiser’s list for this event.
+              Enter the competition license number of your team&apos;s first
+              driver
             </p>
           </div>
 
@@ -154,10 +208,24 @@ export function FillFormPage() {
             autoFocus
             value={licenceInput}
             onChange={(e) => setLicenceInput(e.target.value)}
-            placeholder="LICENSE NO."
+            placeholder="LICENSE NO. (1st Driver)"
             autoCapitalize="characters"
             className="w-full rounded-md border border-edge bg-bg px-3 py-2 font-mono text-fg placeholder:text-fg-subtle"
           />
+
+          <div>
+            <input
+              value={codriverInput}
+              onChange={(e) => setCodriverInput(e.target.value)}
+              placeholder="LICENSE NO. (Co-Driver, optional)"
+              autoCapitalize="characters"
+              className="w-full rounded-md border border-edge bg-bg px-3 py-2 font-mono text-fg placeholder:text-fg-subtle"
+            />
+            <p className="mt-1 text-xs text-fg-subtle">
+              Optional. If the co-driver is on the organiser’s list, their details
+              are filled in on the form for you.
+            </p>
+          </div>
 
           {refusal && (
             <p role="alert" className="text-sm text-danger-text">
