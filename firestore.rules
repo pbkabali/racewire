@@ -75,6 +75,22 @@ service cloud.firestore {
         allow get: if true;
         allow list: if manages(eventId);
         allow write: if manages(eventId);
+
+        /*
+         * The holder's personal details from the championship registration
+         * list (date of birth, phone, email), used to prefill the entry form.
+         *
+         * The licence document above is world-readable by id so the gate
+         * works signed-out; these fields must not be. Requiring a signed-in
+         * reader means, in practice, someone who has passed the phone OTP —
+         * a rate-limited, identity-attached path to any single record, and
+         * still no path at all to the list.
+         */
+        match /details/{detailsId} {
+          allow get: if request.auth != null;
+          allow list: if manages(eventId);
+          allow write: if manages(eventId);
+        }
       }
 
       /*

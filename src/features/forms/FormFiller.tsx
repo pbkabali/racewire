@@ -28,6 +28,7 @@ export function FormFiller({
   uid,
   phone,
   licenceNumber,
+  prefill,
   onSubmitted,
 }: {
   definition: FormDefinition
@@ -37,6 +38,8 @@ export function FormFiller({
   uid: string
   phone: string
   licenceNumber: string
+  /** Seed answers from the licence record, used only when there is no draft. */
+  prefill?: Values
   onSubmitted: () => void
 }) {
   const { entry, entryId, loading, takenByAnother, saveDraft, markSubmitted } = useFormEntry({
@@ -61,10 +64,14 @@ export function FormFiller({
   const [missing, setMissing] = useState<string[]>([])
   const [malformed, setMalformed] = useState<string[]>([])
 
-  // Hydrate once, from the draft. Doing this in an effect keyed on `entry`
+  // Hydrate once, from the draft — or, on a brand-new entry, from the licence
+  // record. A draft beats prefill outright: what the person saved is truer
+  // than the registration list, and re-seeding a draft would resurrect fields
+  // they deliberately cleared. Doing this in an effect keyed on `entry`
   // would overwrite what the person is typing each time the draft saves.
   if (!loading && !hydrated) {
     if (entry?.values) setValues(entry.values)
+    else if (prefill) setValues(prefill)
     setHydrated(true)
   }
 

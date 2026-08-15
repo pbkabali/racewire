@@ -2,16 +2,48 @@ import { collection, doc, getDoc, onSnapshot, orderBy, query } from 'firebase/fi
 import { useEffect, useState } from 'react'
 
 import { db, eventCollections, eventPath } from '../../lib/firebase/db'
-import type { Licence } from './types'
+import type { Licence, LicenceDetails } from './types'
 
 /**
  * Licence numbers are normalised before use as document ids: organisers type
  * them inconsistently ("UG/123", "ug 123") and a competitor will not reproduce
  * the punctuation exactly. Stripping to alphanumerics and upper-casing makes
  * the lookup forgiving without making it loose.
+ *
+ * The FMU registration export appends the holder's role to the number
+ * ("FMU26R118/Driver"). Nobody types that at the gate, so a trailing role word
+ * — and only a known role word, since a slash elsewhere in a number must
+ * survive as before — is dropped first.
  */
 export function normaliseLicence(raw: string): string {
-  return raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return raw
+    .replace(/\/\s*(driver|co-?driver|rider|official)\s*$/i, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+}
+
+/** The personal-details subdocument beneath one licence. */
+export function licenceDetailsRef(eventCode: string, number: string) {
+  return doc(
+    db,
+    eventPath(eventCode, eventCollections.licences),
+    number,
+    'details',
+    'holder',
+  )
+}
+
+/**
+ * Personal details for a licence, or null when the organiser's list carries
+ * only a number and name (the plain paste format). Rules require a signed-in
+ * reader, so call this after the phone OTP, never at the gate.
+ */
+export async function fetchLicenceDetails(
+  eventCode: string,
+  rawNumber: string,
+): Promise<LicenceDetails | null> {
+  const snap = await getDoc(licenceDetailsRef(eventCode, normaliseLicence(rawNumber)))
+  return snap.exists() ? (snap.data() as LicenceDetails) : null
 }
 
 /** Live list of licences for an event. Admin-only in practice; rules enforce it. */
