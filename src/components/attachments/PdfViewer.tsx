@@ -1,3 +1,6 @@
+// First, before react-pdf can evaluate pdf.js: it shims what pdf.js assumes.
+import './pdfPolyfills'
+
 import { useEffect, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 
@@ -14,9 +17,14 @@ import { PdfDownloading, PdfPagePlaceholder } from './PdfLoading'
  * The worker is resolved through `new URL(..., import.meta.url)` so Vite
  * fingerprints and serves it as a real asset -- a bare string path would break
  * once the app is deployed under a hashed filename.
+ *
+ * The LEGACY worker, deliberately, matching the vite.config alias that swaps
+ * the pdf.js API to its legacy build: the worker ships to the browser
+ * verbatim, no bundler ever transpiles it, and the modern one failed to even
+ * parse on pre-16.4 iOS Safari. Keep the two builds in step.
  */
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
+  'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
   import.meta.url,
 ).toString()
 
