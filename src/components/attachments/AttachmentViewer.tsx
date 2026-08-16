@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react'
 
 import { downloadAttachment, type Attachment } from '../../lib/firebase/storage'
 import { Spinner } from './PdfLoading'
@@ -7,6 +7,29 @@ import { Spinner } from './PdfLoading'
 const PdfViewer = lazy(() =>
   import('./PdfViewer').then((m) => ({ default: m.PdfViewer })),
 )
+
+/**
+ * Catches the pdf.js chunk failing to load or evaluate.
+ *
+ * Even its legacy build needs roughly iOS 16.4; on anything older the module
+ * throws while parsing, and without a boundary that error escaped to the
+ * router's error page and took the whole app down with it. A class, because
+ * error boundaries have no hook equivalent.
+ */
+class PdfBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children
+  }
+}
 
 /** Full-screen viewer for one attachment. Escape and backdrop both close it. */
 export function AttachmentViewer({
@@ -91,18 +114,45 @@ export function AttachmentViewer({
             className="mx-auto max-h-full max-w-full object-contain"
           />
         ) : (
-          <Suspense
-            // Covers fetching the pdf.js chunk itself, which is the first wait
-            // and separate from downloading the document.
+          <PdfBoundary
             fallback={
-              <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
-                <Spinner className="h-8 w-8" />
-                <p className="text-sm text-white/70">Preparing viewer…</p>
+              <div className="flex h-[60vh] flex-col items-center justify-center gap-3 px-6 text-center">
+                <p className="text-sm text-white/80">
+                  This browser cannot display the PDF inside the app.
+                </p>
+                {/* iOS renders PDFs natively when navigated to directly, so
+                    the same file that will not open here opens in a tab. */}
+                <a
+                  href={attachment.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded border border-white/30 px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Open in browser
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void downloadAttachment(attachment)}
+                  className="text-sm text-white/70 underline"
+                >
+                  or download it
+                </button>
               </div>
             }
           >
-            <PdfViewer url={attachment.url} name={attachment.name} />
-          </Suspense>
+            <Suspense
+              // Covers fetching the pdf.js chunk itself, which is the first wait
+              // and separate from downloading the document.
+              fallback={
+                <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
+                  <Spinner className="h-8 w-8" />
+                  <p className="text-sm text-white/70">Preparing viewer…</p>
+                </div>
+              }
+            >
+              <PdfViewer url={attachment.url} name={attachment.name} />
+            </Suspense>
+          </PdfBoundary>
         )}
       </div>
     </div>

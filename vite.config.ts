@@ -9,6 +9,22 @@ const DEV_PORT = 5399
 
 // https://vite.dev/config/
 export default defineConfig({
+  resolve: {
+    alias: [
+      /*
+       * pdf.js's default build targets the newest browsers only — its modern
+       * syntax crashed the PDF viewer on pre-17.4 iOS Safari with parse and
+       * "undefined is not a function" errors. The legacy build is the same
+       * API transpiled and polyfilled for older engines, so react-pdf's
+       * `import 'pdfjs-dist'` is pointed there. Exact-match regex on purpose:
+       * subpath imports like the worker URL must not be rewritten twice.
+       */
+      {
+        find: /^pdfjs-dist$/,
+        replacement: 'pdfjs-dist/legacy/build/pdf.mjs',
+      },
+    ],
+  },
   server: {
     port: DEV_PORT,
     // Fail rather than silently moving to the next free port. A drifting port
