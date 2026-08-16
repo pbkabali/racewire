@@ -4,6 +4,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { ErrorScreen } from '../components/ErrorScreen'
 import { Loading } from '../components/Loading'
 import { DocumentsPage } from '../features/documents/DocumentsPage'
+import { EventHomePage } from '../features/events/EventHomePage'
 import { EventLayout } from '../features/events/EventLayout'
 import { EventPickerPage } from '../features/events/EventPickerPage'
 import { NoticesPage } from '../features/notices/NoticesPage'
@@ -40,7 +41,10 @@ export const router = createBrowserRouter([
         path: '/e/:code',
         element: <EventLayout />,
         children: [
-          { index: true, element: <NoticesPage /> },
+          // The landing card grid; notices moved to their own path so the
+          // first screen shows the whole event rather than one tab of it.
+          { index: true, element: <EventHomePage /> },
+          { path: 'notices', element: <NoticesPage /> },
           { path: 'schedule', element: <SchedulePage /> },
           { path: 'docs', element: <DocumentsPage /> },
           { path: 'docs/fill/:documentId', element: lazy(<FillFormPage />) },

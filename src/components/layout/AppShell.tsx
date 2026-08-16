@@ -11,7 +11,8 @@ import { OfflineBanner } from '../OfflineBanner'
 import { ThemeToggle } from '../ThemeToggle'
 
 const navItems = [
-  { to: '', label: 'Notices', end: true },
+  // The event index is the card home; tapping the event name goes there.
+  { to: 'notices', label: 'Notices', end: false },
   { to: 'schedule', label: 'Schedule', end: false },
   { to: 'docs', label: 'Docs', end: false },
   { to: 'results', label: 'Results', end: false },
@@ -39,7 +40,10 @@ export function AppShell() {
 
           <span className="mx-1 h-5 w-px flex-none bg-edge" aria-hidden />
 
-          <span className="min-w-0 flex-1">
+          {/* Absolute, matching FillFormPage's lesson: relative paths from a
+              layout are easy to get subtly wrong. The name is the way back to
+              the event's card home from any tab. */}
+          <Link to={`/e/${event.code}`} className="min-w-0 flex-1">
             <span className="flex items-center gap-2">
               <span className="truncate text-sm font-semibold text-fg">{event.name}</span>
               {event.status === 'live' && (
@@ -51,7 +55,7 @@ export function AppShell() {
             <span className="hidden truncate text-xs text-fg-subtle sm:block">
               {event.countryName} · {formatEventDates(event)}
             </span>
-          </span>
+          </Link>
 
           {canManage && (
             <Link
