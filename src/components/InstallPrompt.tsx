@@ -33,10 +33,18 @@ function isIos(): boolean {
  * Two very different paths:
  *
  * - Chrome/Android gives us `beforeinstallprompt`, so we can install properly.
+ *   It also will not fire the event while the app is installed, so the offer
+ *   stays away on its own — and comes back by itself after an uninstall.
  * - iOS Safari has no install API at all. The only route is Share → Add to
  *   Home Screen, so all we can do is tell people where it is. Worth doing
  *   rather than skipping, because iOS ALSO gates web push behind installing —
  *   an iPhone user who never installs can never receive a notification.
+ *
+ * iOS also offers no way to ask "is it installed already?" — the home-screen
+ * app does not even share Safari's storage, so it cannot leave a marker for
+ * this code to find. The honest best is an explicit "already added it"
+ * dismissal, and only THAT persists. The ✕ means "not now": it hides the
+ * offer for this visit and lets it return on the next one.
  */
 export function InstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
@@ -64,11 +72,30 @@ export function InstallPrompt() {
       setDeferred(event as BeforeInstallPromptEvent)
     }
 
+    // Fires when installation happens by ANY route — our button or the
+    // browser's own menu — so the offer disappears the moment it comes true.
+    // Not persisted: Chrome already withholds beforeinstallprompt while the
+    // app is installed, and a stored flag would outlive an uninstall.
+    const onInstalled = () => {
+      setDeferred(null)
+      setShowIosHint(false)
+    }
+
     window.addEventListener('beforeinstallprompt', onPrompt)
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
   }, [])
 
-  function close() {
+  /** ✕: remind me later. Hides the offer for this visit only. */
+  function remindLater() {
+    setDismissed(true)
+  }
+
+  /** The person says it is already on their home screen; stop offering. */
+  function alreadyInstalled() {
     setDismissed(true)
     try {
       localStorage.setItem(DISMISSED_KEY, '1')
@@ -81,10 +108,12 @@ export function InstallPrompt() {
     if (!deferred) return
     await deferred.prompt()
     await deferred.userChoice
-    // Single-use: the event cannot be replayed, and Chrome will fire a fresh
-    // one on a later visit if they declined.
+    // Single-use: the event cannot be replayed. Hide for this visit either
+    // way — on an accept, `appinstalled` and Chrome's own behaviour keep the
+    // offer away for good; on a decline, Chrome fires a fresh event on a
+    // later visit, which is exactly the "remind me later" cadence.
     setDeferred(null)
-    close()
+    remindLater()
   }
 
   if (dismissed || (!deferred && !showIosHint)) return null
@@ -107,10 +136,21 @@ export function InstallPrompt() {
             Opens in one tap and keeps working without signal.
           </p>
         ) : (
-          <p className="mt-0.5 text-xs text-fg-muted">
-            Tap <span aria-label="the Share button">Share</span> in Safari, then{' '}
-            <strong className="font-semibold text-fg">Add to Home Screen</strong>.
-          </p>
+          <>
+            <p className="mt-0.5 text-xs text-fg-muted">
+              Tap <span aria-label="the Share button">Share</span> in Safari, then{' '}
+              <strong className="font-semibold text-fg">Add to Home Screen</strong>.
+            </p>
+            {/* Safari cannot tell us the app is already on the home screen,
+                so the person says it for us — the one dismissal that sticks. */}
+            <button
+              type="button"
+              onClick={alreadyInstalled}
+              className="mt-2 text-xs font-semibold text-accent-text underline"
+            >
+              I’ve already added it
+            </button>
+          </>
         )}
 
         {deferred && (
@@ -126,8 +166,8 @@ export function InstallPrompt() {
 
       <button
         type="button"
-        onClick={close}
-        aria-label="Dismiss"
+        onClick={remindLater}
+        aria-label="Not now"
         className="flex-none rounded p-1 text-fg-subtle hover:text-fg"
       >
         ✕
