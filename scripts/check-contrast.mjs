@@ -27,8 +27,8 @@ const N = {
   1000: '#ffffff',
 }
 
-const ACCENT = '#ffd400'
-const ACCENT_DEEP = '#856800'
+const ACCENT = '#f57328'
+const ACCENT_DEEP = '#a04a08'
 const DANGER = '#e10600'
 const DANGER_DEEP = '#b00500'
 const DANGER_LIGHT = '#ff4d47'

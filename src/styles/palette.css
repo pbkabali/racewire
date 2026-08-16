@@ -8,19 +8,20 @@
  * accent, danger), which are derived from what you set below. Change a value
  * here and both light and dark modes follow, with no component edits.
  *
- * Current identity: black ground, yellow accent, red for urgency.
+ * Current identity: black ground, orange accent, red for urgency.
  */
 
 :root {
   /* ---- Brand hues ---------------------------------------------------- */
 
   /* Primary accent. Used for emphasis, active nav, primary buttons. */
-  --brand-accent: #ffd400;
+  --brand-accent: #f57328;
   /* Darker cut of the accent, for accent-coloured TEXT on light backgrounds.
-     Pure yellow on white fails contrast badly, so light mode reaches for this.
-     Tuned to clear WCAG AA (4.5:1) against the CARD surface, not just the page
-     -- the page is the easier test and passing only that leaves cards failing. */
-  --brand-accent-deep: #856800;
+     The full-strength accent on white fails contrast, so light mode reaches
+     for this. Tuned to clear WCAG AA (4.5:1) against the CARD surface, not
+     just the page -- the page is the easier test and passing only that
+     leaves cards failing. */
+  --brand-accent-deep: #a04a08;
 
   /* Urgency. Reserved for genuine alerts so it keeps its meaning. */
   --brand-danger: #e10600;
