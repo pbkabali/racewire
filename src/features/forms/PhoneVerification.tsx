@@ -10,6 +10,47 @@ import { auth } from '../../lib/firebase/auth'
 import { isAnyAdmin } from '../../lib/firebase/auth'
 
 /**
+ * The championship's field plus its region: Uganda first as the default, the
+ * rest of the EAC, then every country that appears on the FMU registration
+ * list. Deliberately not the whole world — a number typed with its own "+"
+ * country code bypasses the picker entirely, so nobody is locked out.
+ */
+const COUNTRIES = [
+  { flag: '🇺🇬', name: 'Uganda', dial: '+256' },
+  { flag: '🇧🇮', name: 'Burundi', dial: '+257' },
+  { flag: '🇧🇪', name: 'Belgium', dial: '+32' },
+  { flag: '🇨🇩', name: 'DR Congo', dial: '+243' },
+  { flag: '🇮🇳', name: 'India', dial: '+91' },
+  { flag: '🇮🇱', name: 'Israel', dial: '+972' },
+  { flag: '🇮🇹', name: 'Italy', dial: '+39' },
+  { flag: '🇰🇪', name: 'Kenya', dial: '+254' },
+  { flag: '🇷🇼', name: 'Rwanda', dial: '+250' },
+  { flag: '🇸🇸', name: 'South Sudan', dial: '+211' },
+  { flag: '🇹🇿', name: 'Tanzania', dial: '+255' },
+  { flag: '🇺🇸', name: 'United States', dial: '+1' },
+]
+
+/**
+ * A typed number to E.164, which is what Firebase requires.
+ *
+ * A "+" start means the person supplied their own country code, and it wins
+ * over the picker. Otherwise the number is local: separators go, one leading
+ * trunk zero goes — Ugandans write 0772 123456 for what the network calls
+ * +256772123456, and both spellings must land on the same number. Length
+ * bounds are deliberately loose sanity checks; Firebase does the real
+ * validation and its error is surfaced as-is.
+ */
+function toE164(raw: string, dial: string): string | null {
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('+')) {
+    const digits = trimmed.replace(/\D/g, '')
+    return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null
+  }
+  const digits = trimmed.replace(/\D/g, '').replace(/^0/, '')
+  return digits.length >= 7 && digits.length <= 12 ? `${dial}${digits}` : null
+}
+
+/**
  * Verify a phone number by SMS, using Firebase Phone Auth.
  *
  * Works identically on desktop: the number is typed in the browser, the code
@@ -29,6 +70,9 @@ export function PhoneVerification({
   const { user, scope } = useAuth()
 
   const [phone, setPhone] = useState('')
+  const [dial, setDial] = useState(COUNTRIES[0].dial)
+  /** The E.164 number a code was actually sent to. */
+  const [sentTo, setSentTo] = useState('')
   const [code, setCode] = useState('')
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null)
   const [busy, setBusy] = useState(false)
@@ -101,16 +145,17 @@ export function PhoneVerification({
     event.preventDefault()
     setError(null)
 
-    const trimmed = phone.trim()
-    if (!trimmed.startsWith('+')) {
-      setError('Include the country code, starting with + — for example +256700000000.')
+    const e164 = toE164(phone, dial)
+    if (!e164) {
+      setError('Enter the mobile number — for example 0772 123456.')
       return
     }
 
     setBusy(true)
     try {
       const verifier = verifierRef.current ?? freshVerifier()
-      const result = await signInWithPhoneNumber(auth, trimmed, verifier)
+      const result = await signInWithPhoneNumber(auth, e164, verifier)
+      setSentTo(e164)
       setConfirmation(result)
     } catch (cause) {
       // The friendly message loses the detail that identifies the cause, so the
@@ -140,7 +185,7 @@ export function PhoneVerification({
     setBusy(true)
     try {
       const credential = await confirmation.confirm(value)
-      onVerified(credential.user.phoneNumber ?? phone.trim(), credential.user.uid)
+      onVerified(credential.user.phoneNumber ?? sentTo, credential.user.uid)
     } catch (cause) {
       setError(describe(cause))
     } finally {
@@ -182,17 +227,32 @@ export function PhoneVerification({
             <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
               Mobile number
             </span>
-            <input
-              required
-              type="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+256700000000"
-              className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg placeholder:text-fg-subtle"
-            />
+            <div className="mt-1 flex gap-2">
+              <select
+                value={dial}
+                onChange={(e) => setDial(e.target.value)}
+                aria-label="Country code"
+                className="flex-none rounded-md border border-edge bg-bg px-2 py-2 text-fg"
+              >
+                {COUNTRIES.map((country) => (
+                  <option key={country.dial} value={country.dial}>
+                    {country.flag} {country.name} ({country.dial})
+                  </option>
+                ))}
+              </select>
+              <input
+                required
+                type="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0772 123456"
+                className="min-w-0 flex-1 rounded-md border border-edge bg-bg px-3 py-2 text-fg placeholder:text-fg-subtle"
+              />
+            </div>
             <span className="mt-1 block text-xs text-fg-subtle">
-              Include the country code.
+              With or without the leading zero. A different country? Type the
+              full number starting with +.
             </span>
           </label>
 
@@ -241,7 +301,7 @@ export function PhoneVerification({
               className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-center font-mono text-lg tracking-widest text-fg placeholder:text-fg-subtle"
             />
             <span className="mt-1 block text-xs text-fg-subtle">
-              Sent to {phone}.
+              Sent to {sentTo}.
             </span>
           </label>
 
