@@ -132,20 +132,25 @@ export function PhoneVerification({
     }
   }
 
-  async function confirmCode(event: FormEvent) {
-    event.preventDefault()
-    if (!confirmation) return
+  /** Shared by the Verify button and the sixth-digit auto-submit. */
+  async function verify(value: string) {
+    if (!confirmation || busy) return
 
     setError(null)
     setBusy(true)
     try {
-      const credential = await confirmation.confirm(code.trim())
+      const credential = await confirmation.confirm(value)
       onVerified(credential.user.phoneNumber ?? phone.trim(), credential.user.uid)
     } catch (cause) {
       setError(describe(cause))
     } finally {
       setBusy(false)
     }
+  }
+
+  async function confirmCode(event: FormEvent) {
+    event.preventDefault()
+    await verify(code.trim())
   }
 
   return (
@@ -224,7 +229,14 @@ export function PhoneVerification({
               pattern="[0-9]*"
               maxLength={6}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => {
+                // Digits only, so a pasted "123 456" still lands as a code.
+                const cleaned = e.target.value.replace(/\D/g, '').slice(0, 6)
+                setCode(cleaned)
+                // The sixth digit submits by itself — one tap on the
+                // keyboard's SMS suggestion is the whole interaction.
+                if (cleaned.length === 6) void verify(cleaned)
+              }}
               placeholder="123456"
               className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-center font-mono text-lg tracking-widest text-fg placeholder:text-fg-subtle"
             />
