@@ -343,12 +343,16 @@ export function FormFiller({
                           {row.label}
                           {required && ' *'}
                         </span>
+                        {/* text-base on phones, not text-sm: iOS Safari zooms
+                            the viewport into any focused input under 16px and
+                            the zoom outlives the keyboard, leaving the page
+                            panning sideways. Desktop gets the compact size. */}
                         <input
                           type={row.kind === 'date' ? 'date' : row.kind}
                           value={values[key] ?? ''}
                           onChange={(e) => set(key, e.target.value)}
                           autoComplete={row.autoComplete}
-                          className="mt-1 w-full rounded-md border border-edge bg-surface px-3 py-2 text-sm text-fg"
+                          className="mt-1 w-full rounded-md border border-edge bg-surface px-3 py-2 text-base text-fg sm:text-sm"
                         />
                         {(row.helpFor?.[party.key] ?? row.help) && (
                           <span className="mt-1 block text-xs text-fg-subtle">
@@ -375,7 +379,7 @@ export function FormFiller({
                   <select
                     value={values[`${section.id}.${field.key}`] ?? ''}
                     onChange={(e) => set(`${section.id}.${field.key}`, e.target.value)}
-                    className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-sm text-fg"
+                    className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-base text-fg sm:text-sm"
                   >
                     <option value="">Choose…</option>
                     {field.options?.map((option) => (
@@ -390,7 +394,7 @@ export function FormFiller({
                     value={values[`${section.id}.${field.key}`] ?? ''}
                     onChange={(e) => set(`${section.id}.${field.key}`, e.target.value)}
                     autoComplete={field.autoComplete}
-                    className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-sm text-fg"
+                    className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-base text-fg sm:text-sm"
                   />
                 )}
                 {field.help && (

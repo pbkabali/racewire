@@ -40,6 +40,12 @@
     /* Respect notches and the home indicator on phones. */
     padding: env(safe-area-inset-top) env(safe-area-inset-right)
       env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /*
+     * The page must never pan sideways, whatever some element does. clip,
+     * not hidden: hidden turns the body into a scroll container and breaks
+     * position: sticky; clip only clips. Older engines ignore it, safely.
+     */
+    overflow-x: clip;
   }
 
   /* Visible focus for keyboard users without ringing every mouse click. */
