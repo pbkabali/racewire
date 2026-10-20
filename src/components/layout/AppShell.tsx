@@ -66,10 +66,14 @@ export function AppShell() {
               Manage
             </Link>
           )}
-          <NotificationCentre eventCode={event.code} />
           <div className="flex-none">
             <ThemeToggle />
           </div>
+          {/* Last in the row, hard against the right edge. The bell is the one
+              control here that changes on its own and carries an unread count,
+              so it gets the corner the eye goes to; the theme toggle is set
+              once and then ignored. */}
+          <NotificationCentre eventCode={event.code} />
         </div>
 
         <nav className="mx-auto hidden max-w-5xl gap-1 px-6 pb-2 sm:flex">
