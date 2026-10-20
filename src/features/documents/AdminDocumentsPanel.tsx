@@ -21,6 +21,7 @@ import {
 import { useOnlineStatus } from '../../lib/hooks/useOnlineStatus'
 import type { EventDocument } from '../events/types'
 import { DocumentAdminRow, type DocumentEdits } from './DocumentAdminRow'
+import { EntryListCard } from './EntryListCard'
 import { FORM_DEFINITIONS } from '../forms/rallyEntry'
 import { FolderManager } from './FolderManager'
 import { groupDocuments, useDocuments } from './useDocuments'
@@ -305,6 +306,8 @@ export function AdminDocumentsPanel({ eventCode }: { eventCode: string }) {
       </form>
 
       <FolderManager eventCode={eventCode} folders={folders} documents={documents} />
+
+      <EntryListCard eventCode={eventCode} online={online} />
 
       <section>
         <h2 className="mb-2 font-semibold text-fg">Published documents</h2>

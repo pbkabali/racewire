@@ -56,6 +56,10 @@ export const eventCollections = {
   licences: 'licences',
   /** Filled forms, draft and submitted. Personal data — never public. */
   entries: 'entries',
+  /** Extra notification recipients an organiser added: officials, media. */
+  contacts: 'contacts',
+  /** One row per recipient per channel per send. Written by Cloud Functions. */
+  notifications: 'notifications',
 } as const
 
 type EventCollection = (typeof eventCollections)[keyof typeof eventCollections]

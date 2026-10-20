@@ -1,6 +1,7 @@
 import { getStorage } from 'firebase-admin/storage'
 import { logger } from 'firebase-functions'
 
+import { describeError } from '../errors.js'
 import type { EmailAttachment } from './providers.js'
 
 /**
@@ -28,7 +29,7 @@ export async function loadEntryPdf(
       contentType: 'application/pdf',
     }
   } catch (cause) {
-    logger.error('could not attach entry PDF', { path: pdfPath, cause })
+    logger.error('could not attach entry PDF', { path: pdfPath, ...describeError(cause) })
     return null
   }
 }
