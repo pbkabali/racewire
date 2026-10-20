@@ -1,4 +1,4 @@
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
+import { arrayUnion, doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import {
   getMessaging,
   getToken,
@@ -35,8 +35,15 @@ export function getMessagingIfSupported(): Promise<Messaging | null> {
  * Returns the FCM token, or null if unsupported or the user declined.
  * Call this from a user gesture -- browsers reject permission prompts that
  * fire on page load.
+ *
+ * Scoped to an event. The token still belongs to the device, so it stays
+ * keyed by token in a single global collection, but it carries the set of
+ * events the device has subscribed to -- one phone following two rallies is
+ * ordinary, and dispatch reads this to avoid telling everybody about an event
+ * they are not at. arrayUnion rather than a fresh array so subscribing to a
+ * second event does not unsubscribe from the first.
  */
-export async function registerForPush(): Promise<string | null> {
+export async function registerForPush(eventCode: string): Promise<string | null> {
   const messaging = await getMessagingIfSupported()
   if (!messaging) return null
 
@@ -53,7 +60,12 @@ export async function registerForPush(): Promise<string | null> {
   // Keyed by token so re-registering the same device is idempotent.
   await setDoc(
     doc(db, collections.subscribers, token),
-    { token, channel: 'push', updatedAt: serverTimestamp() },
+    {
+      token,
+      channel: 'push',
+      events: arrayUnion(eventCode.toUpperCase()),
+      updatedAt: serverTimestamp(),
+    },
     { merge: true },
   )
 

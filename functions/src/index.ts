@@ -4,13 +4,16 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { logger, setGlobalOptions } from 'firebase-functions'
 import { defineSecret } from 'firebase-functions/params'
 import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
-import { HttpsError, onCall } from 'firebase-functions/v2/https'
+import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 
 import { loadEntryPdf } from './email/entryPdf.js'
 import { sendEntryConfirmation } from './email/sendEntryConfirmation.js'
 import { sendEntryNotification } from './email/sendEntryNotification.js'
-import { dispatchNotice } from './notify/dispatch.js'
+import { describeError } from './errors.js'
+import { dispatchNotification } from './notify/dispatch.js'
+import { extractStatuses, isFromMeta } from './notify/metaWebhook.js'
+import { claimPending, fallbackToSms, findExpired, markDelivered } from './notify/outbox.js'
 import { syncRacesFromSheet } from './sheets/sync.js'
 
 initializeApp()
@@ -35,6 +38,11 @@ setGlobalOptions({ region: 'europe-west1', maxInstances: 10 })
  *        firebase functions:secrets:set TWILIO_AUTH_TOKEN    --project production
  *        firebase functions:secrets:set TWILIO_FROM_NUMBER   --project production
  *      (or WHATSAPP_TOKEN / WHATSAPP_PHONE_NUMBER_ID)
+ *      For the WhatsApp delivery receipts that drive the SMS fallback, also:
+ *        firebase functions:secrets:set WHATSAPP_APP_SECRET    --project production
+ *        firebase functions:secrets:set WHATSAPP_VERIFY_TOKEN  --project production
+ *      (the app secret from Meta's app settings; the verify token is any
+ *      string you choose and then type into Meta's webhook form)
  *   2. Add them here:
  *        import { defineSecret } from 'firebase-functions/params'
  *        const messagingSecrets = [defineSecret('TWILIO_ACCOUNT_SID'), ...]
@@ -61,16 +69,111 @@ const sendgridApiKey = defineSecret('SENDGRID_API_KEY')
  * offline still notifies everyone once the device syncs -- the trigger fires
  * when the document actually lands, not when the admin pressed publish.
  */
+/**
+ * True when a newly-created document is historical rather than just published.
+ *
+ * Creation triggers cannot tell a publication from a migration: copy-event.mjs
+ * writes a whole event's notices and documents into another project, and
+ * without this guard restoring last year's rally into production would text
+ * the entire field about bulletins from last year. A copied row keeps its
+ * original timestamp, so an old one means a backfill.
+ *
+ * Offline publishing still works. A notice queued on a marshal's phone carries
+ * serverTimestamp(), which resolves when the write finally commits -- so it
+ * arrives fresh however long the device was out of signal, which is exactly
+ * the case the trigger exists for.
+ */
+const BACKFILL_AFTER_MS = 60 * 60 * 1000
+
+function isBackfill(stamp: unknown): boolean {
+  const date = (stamp as { toDate?: () => Date } | null)?.toDate?.()
+  if (!date) return false
+  return Date.now() - date.getTime() > BACKFILL_AFTER_MS
+}
+
 export const onNoticeCreated = onDocumentCreated(
-  { document: 'notices/{noticeId}', secrets: messagingSecrets },
+  {
+    /*
+     * events/{eventId}/notices, NOT the top-level notices/{noticeId} this
+     * listened on until now.
+     *
+     * Notices moved under their event when the app became multi-event; this
+     * trigger did not move with them, so it has been matching a collection
+     * nothing writes to -- rules deny the top-level path outright. No notice
+     * has ever been dispatched. The same migration is why storage.rules still
+     * carries a /notices/{fileName} rule marked as predating event scoping.
+     */
+    document: 'events/{eventId}/notices/{noticeId}',
+    secrets: messagingSecrets,
+  },
+  async (event) => {
+    const data = event.data?.data()
+    if (!data) return
+    if (isBackfill(data.publishedAt)) {
+      logger.info('notice not dispatched: backfilled', {
+        eventId: event.params.eventId,
+        noticeId: event.params.noticeId,
+      })
+      return
+    }
+
+    await dispatchNotification(event.params.eventId, {
+      type: 'notice',
+      id: event.params.noticeId,
+      title: String(data.title ?? ''),
+      body: String(data.body ?? ''),
+      path: `/e/${event.params.eventId}/notices`,
+    })
+  },
+)
+
+/**
+ * Fan out every newly published document.
+ *
+ * A bulletin or a stewards' decision is as actionable as a notice -- often
+ * more so -- and until now uploading one told nobody.
+ *
+ * The body is composed here rather than taken from a field because a document
+ * has no prose: it has a number, a name and a file. What goes out has to read
+ * as a sentence on a phone's lock screen.
+ */
+export const onDocumentPublished = onDocumentCreated(
+  {
+    document: 'events/{eventId}/documents/{documentId}',
+    secrets: messagingSecrets,
+  },
   async (event) => {
     const data = event.data?.data()
     if (!data) return
 
-    await dispatchNotice({
-      id: event.params.noticeId,
-      title: String(data.title ?? ''),
-      body: String(data.body ?? ''),
+    /*
+     * Documents the system generates announce nothing.
+     *
+     * The entry list is written by a trigger and rewritten whenever entries
+     * change, so its first appearance is whenever an organiser happens to
+     * press Rebuild during setup -- not a moment anybody needs telling about.
+     * Left unguarded, bootstrapping several events would text the whole field
+     * once per event in the space of a minute.
+     */
+    if (data.autoGenerated === true) return
+
+    if (isBackfill(data.uploadedAt)) {
+      logger.info('document not dispatched: backfilled', {
+        eventId: event.params.eventId,
+        documentId: event.params.documentId,
+      })
+      return
+    }
+
+    const number = String(data.documentNumber ?? '').trim()
+    const name = String(data.name ?? 'Untitled document').trim()
+
+    await dispatchNotification(event.params.eventId, {
+      type: 'document',
+      id: event.params.documentId,
+      title: number ? `Document ${number}: ${name}` : `New document: ${name}`,
+      body: String(data.notes ?? '').trim() || 'Published to the event document library.',
+      path: `/e/${event.params.eventId}/docs`,
     })
   },
 )
@@ -202,7 +305,10 @@ export const onEntrySubmitted = onDocumentUpdated(
           organiserPhone: (eventData.contactPhone as string | undefined) ?? '',
         })
       } catch (cause) {
-        logger.error('entry confirmation failed', { entryId: event.params.entryId, cause })
+        logger.error('entry confirmation failed', {
+          entryId: event.params.entryId,
+          ...describeError(cause),
+        })
       }
     } else {
       // Not a reason to stop: the organiser still needs to know, and an entry
@@ -229,7 +335,137 @@ export const onEntrySubmitted = onDocumentUpdated(
         attachment,
       })
     } catch (cause) {
-      logger.error('entry notification failed', { entryId: event.params.entryId, cause })
+      logger.error('entry notification failed', {
+        entryId: event.params.entryId,
+        ...describeError(cause),
+      })
     }
+  },
+)
+
+/**
+ * WhatsApp delivery receipts -- the trigger for the SMS fallback.
+ *
+ * Meta POSTs a status for every message: sent, delivered, read, failed. Only
+ * two are acted on. `delivered` closes the message out. `failed` means the
+ * number could not receive it, so the SMS goes immediately rather than waiting
+ * for the timeout. `sent` says only that Meta accepted it, which we already
+ * knew, and `read` is deliberately ignored and never stored -- whether a
+ * competitor opened a message is not the organiser's business, and not knowing
+ * it is one less piece of personal data to hold.
+ *
+ * Anything this does not recognise still gets a 200. A non-200 makes Meta
+ * retry, and retrying a payload we will never understand just fills the logs.
+ */
+export const whatsappStatus = onRequest({ secrets: messagingSecrets }, async (request, response) => {
+  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN ?? ''
+  const appSecret = process.env.WHATSAPP_APP_SECRET ?? ''
+
+  /*
+   * Meta's one-time subscription handshake: it GETs with a token you chose and
+   * expects the challenge echoed back verbatim.
+   */
+  if (request.method === 'GET') {
+    const query = request.query as Record<string, string | undefined>
+    if (verifyToken && query['hub.mode'] === 'subscribe' && query['hub.verify_token'] === verifyToken) {
+      response.status(200).send(query['hub.challenge'] ?? '')
+      return
+    }
+    response.status(403).send('Verification failed')
+    return
+  }
+
+  if (request.method !== 'POST') {
+    response.status(405).send('Method not allowed')
+    return
+  }
+
+  /*
+   * Fails closed. This endpoint is public and acting on an unverified payload
+   * would let anyone mark a message delivered -- suppressing the SMS to a
+   * competitor who never got the WhatsApp. An unconfigured secret is a
+   * misconfiguration, not a reason to trust the caller.
+   */
+  if (!appSecret || !isFromMeta(request.rawBody, request.get('x-hub-signature-256'), appSecret)) {
+    logger.warn('rejected unverified whatsapp webhook')
+    response.status(403).send('Bad signature')
+    return
+  }
+
+  const statuses = extractStatuses(request.body)
+
+  /*
+   * Finish the work BEFORE responding.
+   *
+   * The tempting shape is to answer 200 immediately and process in the
+   * background, since Meta retries slow callbacks. That silently loses sends
+   * here: these are gen-2 functions, so CPU is only allocated while a request
+   * is in flight, and anything still awaiting after response.send() may never
+   * run. A competitor's fallback SMS would go missing with nothing in the log.
+   *
+   * Being slow is the safe failure instead. Meta retries, the retry finds the
+   * message already claimed, and does nothing.
+   */
+  for (const { id, status, reason } of statuses) {
+    try {
+      // 'sent' tells us only what we already knew, and 'read' is ignored by
+      // design -- it is never stored.
+      if (status !== 'delivered' && status !== 'failed') continue
+
+      const entry = await claimPending(id)
+      // Already resolved -- by an earlier callback, or by the sweeper.
+      if (!entry) continue
+
+      if (status === 'delivered') await markDelivered(entry)
+      else await fallbackToSms(entry, reason ?? 'WhatsApp reported the message failed')
+    } catch (cause) {
+      // Swallowed deliberately: a 500 makes Meta redeliver the whole batch,
+      // re-doing the statuses that did work. The sweeper is the backstop for
+      // anything left unclaimed.
+      logger.error('whatsapp status handling failed', {
+        messageId: id,
+        status,
+        ...describeError(cause),
+      })
+    }
+  }
+
+  response.status(200).send('OK')
+})
+
+/**
+ * Send the SMS to anyone whose WhatsApp never came back.
+ *
+ * The receipt-driven path above covers an outright failure. This covers
+ * silence -- a handset that is off, or data switched off -- which produces no
+ * callback at all and would otherwise wait forever.
+ *
+ * Every five minutes against a ten-minute window, so a fallback lands 10-15
+ * minutes after the notice. The cases that need to be fast (a number with no
+ * WhatsApp account) are refused at the API and fall back immediately, so this
+ * slower path only ever covers people who are not looking at a phone anyway.
+ */
+export const sweepWhatsappFallbacks = onSchedule(
+  { schedule: 'every 5 minutes', secrets: messagingSecrets },
+  async () => {
+    const expired = await findExpired(Date.now())
+    if (!expired.length) return
+
+    let sent = 0
+    for (const messageId of expired) {
+      try {
+        const entry = await claimPending(messageId)
+        if (!entry) continue
+        await fallbackToSms(entry, 'No WhatsApp delivery receipt within the wait window')
+        sent++
+      } catch (cause) {
+        logger.error('fallback sweep failed for one message', {
+          messageId,
+          ...describeError(cause),
+        })
+      }
+    }
+
+    logger.info('whatsapp fallback sweep', { expired: expired.length, sent })
   },
 )
