@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 
 import { getMessagingIfSupported, registerForPush } from '../../lib/firebase/messaging'
@@ -36,7 +36,14 @@ export function NotificationCentre({ eventCode }: { eventCode: string }) {
   const { items, unread, markAllRead } = useNotificationFeed(eventCode)
   const [open, setOpen] = useState(false)
   const [push, setPush] = useState<PushState>('off')
+  /** Viewport y the panel hangs from on phones, where it is position: fixed. */
+  const [panelTop, setPanelTop] = useState(0)
   const container = useRef<HTMLDivElement>(null)
+
+  const measure = useCallback(() => {
+    const rect = container.current?.getBoundingClientRect()
+    if (rect) setPanelTop(rect.bottom + 8)
+  }, [])
 
   useEffect(() => {
     void getMessagingIfSupported().then((messaging) => {
@@ -61,14 +68,24 @@ export function NotificationCentre({ eventCode }: { eventCode: string }) {
 
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
+    /*
+     * The header is not sticky, so it scrolls away under a fixed panel.
+     * Re-measuring keeps the two together instead of leaving the panel
+     * floating over the page with nothing above it.
+     */
+    window.addEventListener('scroll', measure, { passive: true })
+    window.addEventListener('resize', measure)
     return () => {
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('scroll', measure)
+      window.removeEventListener('resize', measure)
     }
-  }, [open])
+  }, [open, measure])
 
   function toggle() {
     const next = !open
+    if (next) measure()
     setOpen(next)
     // Marked on open, not on close: opening is the act of reading, and a panel
     // dismissed by a stray tap should not silently clear a red flag.
@@ -109,9 +126,23 @@ export function NotificationCentre({ eventCode }: { eventCode: string }) {
         <div
           role="dialog"
           aria-label="Notifications"
-          /* Right-anchored and width-capped to the viewport so it cannot push
-             the page sideways on a 390px phone. */
-          className="absolute right-0 z-50 mt-2 max-h-[70vh] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-edge bg-surface shadow-lg"
+          style={{ '--panel-top': `${panelTop}px` } as CSSProperties}
+          /*
+           * Fixed to the viewport on phones, absolute to the bell from `sm` up.
+           *
+           * `absolute right-0` alone put the panel's right edge against the
+           * BELL's right edge, not the screen's -- and the bell is not the
+           * last thing in the header, the theme toggle is. A 22rem panel hung
+           * from there runs off the left of a 390px phone, which capping the
+           * width cannot fix: the width was never the problem, the anchor was.
+           *
+           * Going fixed on small screens escapes that containing block
+           * entirely and spans the viewport, inset to line up with the
+           * header's own px-4 content edge. The vertical offset is measured
+           * rather than hardcoded so it follows the header's real height,
+           * safe-area inset included.
+           */
+          className="fixed inset-x-4 top-[var(--panel-top)] z-50 max-h-[70vh] overflow-y-auto rounded-lg border border-edge bg-surface shadow-lg sm:absolute sm:inset-x-auto sm:top-full sm:right-0 sm:mt-2 sm:w-[22rem]"
         >
           {push !== 'on' && (
             <div className="border-b border-edge p-3 text-xs">
