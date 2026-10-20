@@ -10,6 +10,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { loadEntryPdf } from './email/entryPdf.js'
 import { sendEntryConfirmation } from './email/sendEntryConfirmation.js'
 import { sendEntryNotification } from './email/sendEntryNotification.js'
+import { describeError } from './errors.js'
 import { dispatchNotification } from './notify/dispatch.js'
 import { extractStatuses, isFromMeta } from './notify/metaWebhook.js'
 import { claimPending, fallbackToSms, findExpired, markDelivered } from './notify/outbox.js'
@@ -292,7 +293,10 @@ export const onEntrySubmitted = onDocumentUpdated(
           organiserPhone: (eventData.contactPhone as string | undefined) ?? '',
         })
       } catch (cause) {
-        logger.error('entry confirmation failed', { entryId: event.params.entryId, cause })
+        logger.error('entry confirmation failed', {
+          entryId: event.params.entryId,
+          ...describeError(cause),
+        })
       }
     } else {
       // Not a reason to stop: the organiser still needs to know, and an entry
@@ -319,7 +323,10 @@ export const onEntrySubmitted = onDocumentUpdated(
         attachment,
       })
     } catch (cause) {
-      logger.error('entry notification failed', { entryId: event.params.entryId, cause })
+      logger.error('entry notification failed', {
+        entryId: event.params.entryId,
+        ...describeError(cause),
+      })
     }
   },
 )
@@ -403,7 +410,11 @@ export const whatsappStatus = onRequest({ secrets: messagingSecrets }, async (re
       // Swallowed deliberately: a 500 makes Meta redeliver the whole batch,
       // re-doing the statuses that did work. The sweeper is the backstop for
       // anything left unclaimed.
-      logger.error('whatsapp status handling failed', { messageId: id, status, cause })
+      logger.error('whatsapp status handling failed', {
+        messageId: id,
+        status,
+        ...describeError(cause),
+      })
     }
   }
 
@@ -436,7 +447,10 @@ export const sweepWhatsappFallbacks = onSchedule(
         await fallbackToSms(entry, 'No WhatsApp delivery receipt within the wait window')
         sent++
       } catch (cause) {
-        logger.error('fallback sweep failed for one message', { messageId, cause })
+        logger.error('fallback sweep failed for one message', {
+          messageId,
+          ...describeError(cause),
+        })
       }
     }
 
