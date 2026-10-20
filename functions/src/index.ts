@@ -3,11 +3,16 @@ import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { logger, setGlobalOptions } from 'firebase-functions'
 import { defineSecret } from 'firebase-functions/params'
-import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore'
+import {
+  onDocumentCreated,
+  onDocumentUpdated,
+  onDocumentWritten,
+} from 'firebase-functions/v2/firestore'
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 
 import { loadEntryPdf } from './email/entryPdf.js'
+import { publishEntryList } from './entryList/publish.js'
 import { sendEntryConfirmation } from './email/sendEntryConfirmation.js'
 import { sendEntryNotification } from './email/sendEntryNotification.js'
 import { describeError } from './errors.js'
@@ -342,6 +347,71 @@ export const onEntrySubmitted = onDocumentUpdated(
     }
   },
 )
+
+/**
+ * Keep the published entry list in step with the entries.
+ *
+ * Written on every change rather than built on demand, because the list is a
+ * document in the library like any other: competitors download it, organisers
+ * print it, and neither should have to ask for it to be refreshed first.
+ *
+ * onDocumentWritten covers create, update and delete -- a withdrawal has to
+ * take a car off the list as surely as an entry puts one on.
+ */
+export const onEntryChanged = onDocumentWritten(
+  'events/{eventId}/entries/{entryId}',
+  async (event) => {
+    const before = event.data?.before.data()
+    const after = event.data?.after.data()
+
+    /*
+     * Drafts cannot change a list of submitted entries, and a draft is written
+     * on every save while somebody fills the form. Checking the two statuses
+     * costs nothing and skips that entire class of write before it reaches a
+     * query. The content fingerprint downstream catches the rest -- an
+     * organiser correcting a phone number on a submitted entry rebuilds
+     * nothing, because no line of the page differs.
+     */
+    if (before?.status !== 'submitted' && after?.status !== 'submitted') return
+
+    try {
+      await publishEntryList(event.params.eventId)
+    } catch (cause) {
+      /*
+       * Never rethrown. A retry would re-run against the same data and fail
+       * the same way, and a stale entry list must not stop entries being
+       * taken -- the next submission rebuilds it.
+       */
+      logger.error('entry list rebuild failed', {
+        eventId: event.params.eventId,
+        entryId: event.params.entryId,
+        ...describeError(cause),
+      })
+    }
+  },
+)
+
+/**
+ * Rebuild the entry list on demand.
+ *
+ * The trigger covers every normal path, so this is for the abnormal ones:
+ * a file deleted by hand, a rebuild that failed while a gateway was down, or
+ * an organiser who simply wants to be certain before printing.
+ */
+export const regenerateEntryList = onCall(async (request) => {
+  const { eventId } = (request.data ?? {}) as { eventId?: string }
+  if (!eventId) throw new HttpsError('invalid-argument', 'eventId is required.')
+
+  // The same test the Firestore rules apply: a super admin, or an admin whose
+  // claim names this specific event.
+  const token = request.auth?.token
+  const manages =
+    token?.superAdmin === true ||
+    (Array.isArray(token?.events) && token.events.includes(eventId))
+  if (!manages) throw new HttpsError('permission-denied', 'Not an admin for this event.')
+
+  return publishEntryList(eventId)
+})
 
 /**
  * WhatsApp delivery receipts -- the trigger for the SMS fallback.
