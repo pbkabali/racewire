@@ -303,6 +303,5 @@ export const regenerateEntryList = onCall(async (request) => {
     (Array.isArray(token?.events) && token.events.includes(eventId))
   if (!manages) throw new HttpsError('permission-denied', 'Not an admin for this event.')
 
-  const rebuilt = await publishEntryList(eventId)
-  return { rebuilt }
+  return publishEntryList(eventId)
 })

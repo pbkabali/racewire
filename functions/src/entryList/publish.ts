@@ -55,18 +55,23 @@ async function resolveFolderId(eventCode: string): Promise<string> {
   return created.id
 }
 
+export type PublishResult = {
+  /** False when the list was already current and nothing was written. */
+  rebuilt: boolean
+  /** Entries on the list as it now stands, rebuilt or not. */
+  entries: number
+}
+
 /**
  * Rebuild the entry list and publish it, unless nothing on the page changed.
- *
- * Returns true when a new PDF was written.
  */
-export async function publishEntryList(eventCode: string): Promise<boolean> {
+export async function publishEntryList(eventCode: string): Promise<PublishResult> {
   const db = getFirestore()
 
   const eventSnap = await db.collection('events').doc(eventCode).get()
   if (!eventSnap.exists) {
     logger.warn('entry list skipped: no such event', { eventCode })
-    return false
+    return { rebuilt: false, entries: 0 }
   }
   const eventName = (eventSnap.data()?.name as string) ?? eventCode
 
@@ -84,7 +89,7 @@ export async function publishEntryList(eventCode: string): Promise<boolean> {
    * writes change a line of this list.
    */
   if (current.exists && current.data()?.fingerprint === snapshot.fingerprint) {
-    return false
+    return { rebuilt: false, entries: snapshot.rows.length }
   }
 
   const generatedAt = new Date()
@@ -165,5 +170,5 @@ export async function publishEntryList(eventCode: string): Promise<boolean> {
     entries: snapshot.rows.length,
     bytes: body.length,
   })
-  return true
+  return { rebuilt: true, entries: snapshot.rows.length }
 }
