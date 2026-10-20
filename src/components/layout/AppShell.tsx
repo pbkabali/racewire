@@ -4,6 +4,7 @@ import { useAuth } from '../../app/providers/useAuth'
 import { EventContact } from '../../features/events/EventContact'
 import { formatEventDates } from '../../features/events/types'
 import { useEvent } from '../../features/events/useEvent'
+import { NotificationCentre } from '../../features/notifications/NotificationCentre'
 import { canManageEvent } from '../../lib/firebase/auth'
 import { Brand } from '../Brand'
 import { InstallPrompt } from '../InstallPrompt'
@@ -65,6 +66,7 @@ export function AppShell() {
               Manage
             </Link>
           )}
+          <NotificationCentre eventCode={event.code} />
           <div className="flex-none">
             <ThemeToggle />
           </div>

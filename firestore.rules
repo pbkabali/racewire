@@ -132,6 +132,29 @@ service cloud.firestore {
 
         allow delete: if manages(eventId);
       }
+
+      /*
+       * Extra notification recipients an organiser adds by hand: clerks,
+       * marshals, medical, media. Phone numbers attached to names, so this is
+       * personal data and never public -- not even by id, unlike licences.
+       * There is no gate-check use case here that would justify a public get.
+       */
+      match /contacts/{contactId} {
+        allow read, write: if manages(eventId);
+      }
+
+      /*
+       * The delivery log: one row per recipient per channel per notice, which
+       * is what lets an organiser answer "was this competitor told, and when".
+       *
+       * Readable by the event's admins and writable by nobody. Cloud Functions
+       * bypass rules entirely, so the dispatcher still writes it; denying
+       * client writes is what keeps it evidence rather than just a list.
+       */
+      match /notifications/{notificationId} {
+        allow read: if manages(eventId);
+        allow write: if false;
+      }
     }
 
     /*
@@ -144,6 +167,17 @@ service cloud.firestore {
       allow read: if false;
       allow create, update: if request.auth != null || true;
       allow delete: if false;
+    }
+
+    /*
+     * WhatsApp messages awaiting a delivery receipt, which is what decides
+     * whether an SMS follows. Written, read and deleted only by Cloud
+     * Functions, which bypass rules -- so the client needs no access at all,
+     * and granting any would let a competitor suppress their own fallback.
+     * Stated explicitly rather than left to the catch-all, per the note below.
+     */
+    match /whatsappOutbox/{messageId} {
+      allow read, write: if false;
     }
 
     // Anything not matched above is denied. Adding a collection means adding a

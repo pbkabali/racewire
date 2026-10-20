@@ -9,11 +9,12 @@ import { AdminDocumentsPanel } from '../documents/AdminDocumentsPanel'
 import { formatEventDates, type Event } from '../events/types'
 import { EventSharePanel } from './EventSharePanel'
 import { AdminNoticesPanel } from './AdminNoticesPanel'
+import { AdminNotificationsPanel } from './AdminNotificationsPanel'
 import { AdminEntriesPanel } from '../forms/AdminEntriesPanel'
 import { AdminLicencesPanel } from '../forms/AdminLicencesPanel'
 import { EventEditor } from './EventEditor'
 
-const TABS = ['notices', 'documents', 'entries', 'licences', 'share', 'settings'] as const
+const TABS = ['notices', 'documents', 'entries', 'licences', 'notify', 'share', 'settings'] as const
 
 type Tab = (typeof TABS)[number]
 
@@ -68,7 +69,7 @@ export function AdminEventDashboard() {
         </div>
       </header>
 
-      {/* Six tabs overflow a 390px phone, so the strip scrolls within itself
+      {/* The tabs overflow a 390px phone, so the strip scrolls within itself
           rather than pushing the page sideways. */}
       <div
         role="tablist"
@@ -95,6 +96,7 @@ export function AdminEventDashboard() {
       {tab === 'documents' && <AdminDocumentsPanel eventCode={eventCode} />}
       {tab === 'entries' && <AdminEntriesPanel eventCode={eventCode} />}
       {tab === 'licences' && <AdminLicencesPanel eventCode={eventCode} />}
+      {tab === 'notify' && <AdminNotificationsPanel eventCode={eventCode} />}
       {tab === 'share' &&
         (event ? (
           <EventSharePanel event={event} />
