@@ -26,22 +26,53 @@ export type EntryListSnapshot = {
 
 const PLACEHOLDER = '-'
 
+/** Trim, and collapse the double spaces that typed-in fields always collect. */
+const tidy = (text: string | undefined) => (text ?? '').trim().replace(/\s+/g, ' ')
+
+/**
+ * Given names in title case.
+ *
+ * Entry forms are typed by hand on phones, so the same field arrives as
+ * "JOSEPH", "joseph" and "Joseph" across three entries; printing them as
+ * typed makes the list look like a mistake rather than a document.
+ *
+ * A word that already mixes case is left exactly as it was. Somebody who
+ * wrote McDonald or O'Brien meant it, and "correcting" that to Mcdonald would
+ * be the kind of wrong that is worse than inconsistent. Only all-caps or
+ * all-lowercase words are reshaped, which is precisely the set that carries no
+ * intent to preserve.
+ */
+export function titleCase(text: string): string {
+  return text.replace(/\S+/g, (word) => {
+    if (word !== word.toLowerCase() && word !== word.toUpperCase()) return word
+    return word
+      .toLowerCase()
+      .replace(/(^|[-'\u2019])(\p{L})/gu, (_, boundary: string, letter: string) =>
+        boundary + letter.toUpperCase(),
+      )
+  })
+}
+
 /**
  * Names as they are read out, not as they are filed.
  *
- * First name first: "Joseph Mukasa", not "Mukasa, Joseph". A competitor
- * scanning for themselves looks for the name they are called by.
+ * First name first: "Joseph MUKASA", not "Mukasa, Joseph". A competitor
+ * scanning for themselves looks for the name they are called by, and the
+ * capitalised family name is the long-standing entry-list convention for
+ * showing which of several names is the surname -- which is not guessable
+ * from order alone across the nationalities a rally draws.
  */
 function fullName(values: Record<string, string>, party: 'driver' | 'codriver'): string {
-  const first = (values[`identity.firstName.${party}`] ?? '').trim()
-  const family = (values[`identity.familyName.${party}`] ?? '').trim()
+  const first = titleCase(tidy(values[`identity.firstName.${party}`]))
+  const family = tidy(values[`identity.familyName.${party}`]).toUpperCase()
   return [first, family].filter(Boolean).join(' ')
 }
 
+/** Make and model as one field, capitalised to match the family names. */
 function car(values: Record<string, string>): string {
-  const make = (values['car.make'] ?? '').trim()
-  const model = (values['car.model'] ?? '').trim()
-  return [make, model].filter(Boolean).join(' ')
+  const make = tidy(values['car.make'])
+  const model = tidy(values['car.model'])
+  return [make, model].filter(Boolean).join(' ').toUpperCase()
 }
 
 /**
