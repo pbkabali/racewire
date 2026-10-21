@@ -2,6 +2,9 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf
 
 import type { EntryListRow } from './rows.js'
 
+/** The event's logo, already fetched and in a format a PDF can carry. */
+export type EntryListLogo = { bytes: Uint8Array; format: 'png' | 'jpg' }
+
 /* Matches src/features/forms/generatePdf.ts, so the two documents an
  * organiser handles look like they came from the same system. */
 const A4 = { width: 595.28, height: 841.89 }
@@ -9,21 +12,75 @@ const MARGIN = 48
 const ROW_HEIGHT = 18
 const HEADER_SIZE = 9
 
+/*
+ * The logo is boxed rather than placed at a fixed size: organisers upload
+ * whatever they have, from a square club badge to a wide sponsor lock-up, and
+ * both have to sit on the same letterhead without one of them dominating it.
+ * Never scaled above its natural size -- a small logo stretched to fill the
+ * box is blurry on a printed page, and slightly small reads better than soft.
+ */
+const LOGO_BOX = { width: 120, height: 44 }
+
+/*
+ * Bump when the rendered page changes without the underlying data changing.
+ *
+ * publish.ts hashes what goes on the page to decide whether to rebuild. That
+ * hash covers the rows and the logo, which is everything that varies per
+ * event -- but not the layout, which varies per deploy. Adding this column
+ * changed every list and changed nothing hashed, so without a version here
+ * every existing list would report "already up to date" and quietly never
+ * show a number again.
+ */
+export const LAYOUT_VERSION = 2
+
 const COLUMNS = [
-  { label: 'First driver', width: 165 },
-  { label: 'Co-driver', width: 165 },
-  { label: 'Car', width: 169 },
+  /*
+   * A position in the list, not a competition number -- the list is ordered by
+   * the driver's first name, so these shift as entries arrive. Kept narrow and
+   * grey so it reads as the index it is; a bold "3" against a rally entry
+   * would be taken for a car number by every person who has ever read one.
+   */
+  { label: '#', width: 26, muted: true },
+  { label: 'First driver', width: 158 },
+  { label: 'Co-driver', width: 158 },
+  { label: 'Car', width: 157 },
 ] as const
+
+/*
+ * Punctuation phones insert by themselves.
+ *
+ * iOS and Android turn a typed apostrophe into U+2019 as you write, so
+ * O'Brien, N'Guessan and D'Souza arrive curly without anybody choosing it.
+ * These sit above Latin-1, so the fold below would have printed them as "?"
+ * on the entry list -- which is how a competitor's name ends up misspelt on
+ * a published document. Mapped to their ASCII twins rather than passed
+ * through, so the result does not depend on exactly which characters WinAnsi
+ * happens to cover.
+ */
+const SMART_PUNCTUATION: Record<string, string> = {
+  '\u2018': "'",
+  '\u2019': "'",
+  '\u201a': "'",
+  '\u201c': '"',
+  '\u201d': '"',
+  '\u2013': '-',
+  '\u2014': '-',
+  '\u2026': '...',
+  '\u00a0': ' ',
+}
 
 /**
  * The standard PDF fonts encode WinAnsi, not Unicode, and pdf-lib throws on a
  * character it cannot encode rather than dropping it. One competitor with a
- * name outside Latin-1 would fail the whole list, so accents are folded to
- * their base letter and anything still unencodable becomes '?'. A slightly
- * flattened name on the printed list beats no list at all.
+ * name outside Latin-1 would fail the whole list, so smart punctuation is
+ * mapped to ASCII, accents are folded to their base letter, and anything
+ * still unencodable becomes '?'. A slightly flattened name on the printed
+ * list beats no list at all.
  */
 function encodable(text: string): string {
   return [...text.normalize('NFC')]
+    .map((character) => SMART_PUNCTUATION[character] ?? character)
+    .flatMap((piece) => [...piece])
     .map((character) => {
       if (character.charCodeAt(0) < 256) return character
       const stripped = character.normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -57,11 +114,14 @@ export async function renderEntryListPdf({
   eventName,
   eventCode,
   generatedAt,
+  logo,
 }: {
   rows: EntryListRow[]
   eventName: string
   eventCode: string
   generatedAt: Date
+  /** Null when the event has none, or when it could not be embedded. */
+  logo?: EntryListLogo | null
 }): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
   const font = await pdf.embedFont(StandardFonts.Helvetica)
@@ -69,6 +129,21 @@ export async function renderEntryListPdf({
 
   pdf.setTitle(`${eventName} - Entry List`)
   pdf.setCreator('Racewire')
+
+  /*
+   * Embedding can throw on a file that is a valid image but not one PDF can
+   * carry, so the failure is absorbed here rather than taking the list with
+   * it. An entry list without a badge is still an entry list.
+   */
+  let embedded = null
+  if (logo) {
+    try {
+      embedded =
+        logo.format === 'png' ? await pdf.embedPng(logo.bytes) : await pdf.embedJpg(logo.bytes)
+    } catch {
+      embedded = null
+    }
+  }
 
   let page: PDFPage = pdf.addPage([A4.width, A4.height])
   let y = 0
@@ -82,9 +157,30 @@ export async function renderEntryListPdf({
     y = A4.height - MARGIN
 
     if (first) {
-      page.drawText(encodable(eventName), { x: MARGIN, y, size: 16, font: bold })
+      // Page one only. Repeated on every page it would be furniture, not
+      // identity, and it would cost a sheet of rows on a long list.
+      let textX = MARGIN
+      let logoBottom = y
+
+      if (embedded) {
+        const scale = Math.min(
+          LOGO_BOX.width / embedded.width,
+          LOGO_BOX.height / embedded.height,
+          1,
+        )
+        const width = embedded.width * scale
+        const height = embedded.height * scale
+        // Top-aligned with the cap height of the event name beside it, so the
+        // two read as one letterhead rather than as a badge and a heading.
+        const top = y + 12
+        page.drawImage(embedded, { x: MARGIN, y: top - height, width, height })
+        textX = MARGIN + width + 14
+        logoBottom = top - height
+      }
+
+      page.drawText(encodable(eventName), { x: textX, y, size: 16, font: bold })
       y -= 20
-      page.drawText('Entry List', { x: MARGIN, y, size: 12, font: bold })
+      page.drawText('Entry List', { x: textX, y, size: 12, font: bold })
       y -= 14
       /*
        * The generation time is not decoration. An entry list circulates as a
@@ -93,9 +189,11 @@ export async function renderEntryListPdf({
        */
       page.drawText(
         `${eventCode} - ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'} - generated ${stamp}`,
-        { x: MARGIN, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) },
+        { x: textX, y, size: 8, font, color: rgb(0.35, 0.35, 0.35) },
       )
-      y -= 22
+      // Clear whichever runs lower, the text or a tall logo, so the column
+      // rule never cuts across the badge.
+      y = Math.min(y, logoBottom) - 22
     }
 
     // Column headers, repeated per page.
@@ -126,17 +224,20 @@ export async function renderEntryListPdf({
     })
   }
 
-  for (const row of rows) {
+  for (const [position, row] of rows.entries()) {
     if (y < MARGIN + ROW_HEIGHT) startPage(false)
+
+    const cells = [String(position + 1), row.driver, row.codriver, row.car]
 
     let x = MARGIN
     for (const [index, column] of COLUMNS.entries()) {
-      const value = encodable([row.driver, row.codriver, row.car][index] ?? '')
+      const value = encodable(cells[index] ?? '')
       page.drawText(fit(value, font, HEADER_SIZE, column.width), {
         x,
         y,
         size: HEADER_SIZE,
         font,
+        ...('muted' in column && column.muted ? { color: rgb(0.45, 0.45, 0.45) } : {}),
       })
       x += column.width
     }
