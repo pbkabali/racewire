@@ -4,7 +4,7 @@ import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { logger } from 'firebase-functions'
 
-import { renderEntryListPdf, type EntryListLogo } from './pdf.js'
+import { LAYOUT_VERSION, renderEntryListPdf, type EntryListLogo } from './pdf.js'
 import { buildRows } from './rows.js'
 
 /** Folder the organiser asked for it to appear under. Matched case-insensitively. */
@@ -137,7 +137,7 @@ export async function publishEntryList(eventCode: string): Promise<PublishResult
    * content means a rebuild happens only when the page would actually differ.
    */
   const fingerprint = createHash('sha256')
-    .update(JSON.stringify({ rows, logoPath }))
+    .update(JSON.stringify({ rows, logoPath, layout: LAYOUT_VERSION }))
     .digest('hex')
 
   /*
