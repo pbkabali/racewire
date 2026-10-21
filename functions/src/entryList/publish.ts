@@ -1,11 +1,11 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 
 import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { logger } from 'firebase-functions'
 
-import { renderEntryListPdf } from './pdf.js'
-import { buildSnapshot } from './rows.js'
+import { renderEntryListPdf, type EntryListLogo } from './pdf.js'
+import { buildRows } from './rows.js'
 
 /** Folder the organiser asked for it to appear under. Matched case-insensitively. */
 const FOLDER_NAME = 'Lists'
@@ -21,6 +21,46 @@ const FOLDER_NAME = 'Lists'
  */
 const DOCUMENT_ID = 'entry-list'
 const FILE_NAME = 'entry-list.pdf'
+
+/**
+ * Fetch the event's logo, ready to embed.
+ *
+ * Read through the Admin SDK by storage path rather than over HTTP from
+ * logoUrl: the bytes are wanted, not a web request, and a download token that
+ * has been rotated would turn a working logo into a silent 403.
+ *
+ * Format is sniffed from the file itself rather than trusted from metadata,
+ * because PDF carries only PNG and JPEG while Storage rules accept any
+ * image/*. An SVG or WebP logo uploads perfectly well and simply cannot go in
+ * -- so it is skipped, loudly in the log and invisibly on the page.
+ */
+async function loadLogo(logoPath: string | undefined): Promise<EntryListLogo | null> {
+  if (!logoPath) return null
+
+  try {
+    const [bytes] = await getStorage().bucket().file(logoPath).download()
+
+    if (bytes.length > 4 && bytes[0] === 0x89 && bytes[1] === 0x50) {
+      return { bytes, format: 'png' }
+    }
+    if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+      return { bytes, format: 'jpg' }
+    }
+
+    logger.warn('event logo is not a PNG or JPEG, so it is left off the entry list', {
+      logoPath,
+    })
+    return null
+  } catch (cause) {
+    // A missing logo must never cost the list. The organiser gets a plain
+    // heading and a log line, not an empty Lists folder.
+    logger.warn('could not read the event logo', {
+      logoPath,
+      error: cause instanceof Error ? cause.message : String(cause),
+    })
+    return null
+  }
+}
 
 /**
  * Find the Lists folder, or make one.
@@ -73,7 +113,9 @@ export async function publishEntryList(eventCode: string): Promise<PublishResult
     logger.warn('entry list skipped: no such event', { eventCode })
     return { rebuilt: false, entries: 0 }
   }
-  const eventName = (eventSnap.data()?.name as string) ?? eventCode
+  const event = eventSnap.data() ?? {}
+  const eventName = (event.name as string) ?? eventCode
+  const logoPath = (event.logoPath as string | undefined) ?? ''
 
   const documentRef = db
     .collection('events')
@@ -81,23 +123,39 @@ export async function publishEntryList(eventCode: string): Promise<PublishResult
     .collection('documents')
     .doc(DOCUMENT_ID)
 
-  const [snapshot, current] = await Promise.all([buildSnapshot(eventCode), documentRef.get()])
+  const [rows, current] = await Promise.all([buildRows(eventCode), documentRef.get()])
+
+  /*
+   * Hash of everything that reaches the page, which now includes which logo
+   * is on it. Rows alone would mean swapping the event logo left the list
+   * looking current and reporting "already up to date" while still carrying
+   * the old badge -- a change that silently does nothing is worse than one
+   * that visibly costs a rebuild.
+   *
+   * This is also what stops the list being rebuilt constantly: every keystroke
+   * on a half-filled form writes the entry document, and comparing rendered
+   * content means a rebuild happens only when the page would actually differ.
+   */
+  const fingerprint = createHash('sha256')
+    .update(JSON.stringify({ rows, logoPath }))
+    .digest('hex')
 
   /*
    * The cheap exit, and the one that matters most. Entries are written on
    * every autosave while somebody fills the form, and almost none of those
    * writes change a line of this list.
    */
-  if (current.exists && current.data()?.fingerprint === snapshot.fingerprint) {
-    return { rebuilt: false, entries: snapshot.rows.length }
+  if (current.exists && current.data()?.fingerprint === fingerprint) {
+    return { rebuilt: false, entries: rows.length }
   }
 
   const generatedAt = new Date()
   const pdf = await renderEntryListPdf({
-    rows: snapshot.rows,
+    rows,
     eventName,
     eventCode,
     generatedAt,
+    logo: await loadLogo(logoPath),
   })
 
   const bucket = getStorage().bucket()
@@ -140,8 +198,8 @@ export async function publishEntryList(eventCode: string): Promise<PublishResult
       documentNumber: '',
       documentDate: Timestamp.fromDate(generatedAt),
       folderId: await resolveFolderId(eventCode),
-      notes: `Generated automatically - ${snapshot.rows.length} ${
-        snapshot.rows.length === 1 ? 'entry' : 'entries'
+      notes: `Generated automatically - ${rows.length} ${
+        rows.length === 1 ? 'entry' : 'entries'
       }`,
       formType: null,
 
@@ -160,15 +218,15 @@ export async function publishEntryList(eventCode: string): Promise<PublishResult
        * must not fire every time an entry arrives.
        */
       autoGenerated: true,
-      fingerprint: snapshot.fingerprint,
+      fingerprint,
     },
     { merge: true },
   )
 
   logger.info('entry list published', {
     eventCode,
-    entries: snapshot.rows.length,
+    entries: rows.length,
     bytes: body.length,
   })
-  return { rebuilt: true, entries: snapshot.rows.length }
+  return { rebuilt: true, entries: rows.length }
 }

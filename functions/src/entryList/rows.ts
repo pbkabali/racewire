@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto'
-
 import { getFirestore } from 'firebase-admin/firestore'
 
 /** One line of the published list. Three fields, and nothing else. */
@@ -7,21 +5,6 @@ export type EntryListRow = {
   driver: string
   codriver: string
   car: string
-}
-
-export type EntryListSnapshot = {
-  rows: EntryListRow[]
-  /**
-   * Hash of exactly what will be printed.
-   *
-   * This is what stops the list being rebuilt constantly. Every keystroke on a
-   * half-filled form writes the entry document, so a trigger that regenerated
-   * on any write would re-render and re-upload a PDF while somebody types
-   * their next of kin. Comparing the rendered content instead means a rebuild
-   * happens only when a line on the page would actually differ -- and the same
-   * check absorbs edits to fields this list does not show.
-   */
-  fingerprint: string
 }
 
 const PLACEHOLDER = '-'
@@ -85,7 +68,7 @@ function car(values: Record<string, string>): string {
  * Submitted entries only. A draft is not yet a competitor, and publishing the
  * name of somebody who never finished entering is not a correctable mistake.
  */
-export async function buildSnapshot(eventCode: string): Promise<EntryListSnapshot> {
+export async function buildRows(eventCode: string): Promise<EntryListRow[]> {
   const snapshot = await getFirestore()
     .collection('events')
     .doc(eventCode)
@@ -111,7 +94,5 @@ export async function buildSnapshot(eventCode: string): Promise<EntryListSnapsho
     a.driver.localeCompare(b.driver, undefined, { sensitivity: 'base' }),
   )
 
-  const fingerprint = createHash('sha256').update(JSON.stringify(rows)).digest('hex')
-
-  return { rows, fingerprint }
+  return rows
 }
