@@ -56,6 +56,8 @@ export const eventCollections = {
   licences: 'licences',
   /** Filled forms, draft and submitted. Personal data — never public. */
   entries: 'entries',
+  /** The rally programme, in the organiser's own order. */
+  schedule: 'schedule',
   /** Extra notification recipients an organiser added: officials, media. */
   contacts: 'contacts',
   /** One row per recipient per channel per send. Written by Cloud Functions. */

@@ -8,7 +8,7 @@ import { EventHomePage } from '../features/events/EventHomePage'
 import { EventLayout } from '../features/events/EventLayout'
 import { EventPickerPage } from '../features/events/EventPickerPage'
 import { NoticesPage } from '../features/notices/NoticesPage'
-import { SchedulePage } from '../features/races/SchedulePage'
+import { SchedulePage } from '../features/schedule/SchedulePage'
 import { ResultsPage } from '../features/results/ResultsPage'
 import {
   AdminEventDashboard,
