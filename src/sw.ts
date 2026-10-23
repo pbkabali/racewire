@@ -148,6 +148,24 @@ onBackgroundMessage(messaging, (payload) => {
   })
 })
 
+/*
+ * Let the page bring an update forward.
+ *
+ * The worker deliberately waits rather than seizing a running session, which
+ * means an update otherwise lands only after the app is fully closed and
+ * reopened -- two cold starts, and no way for anybody to know it is pending.
+ * This is the other half: the page detects the waiting worker, offers a
+ * Reload, and asks here only once somebody has tapped it.
+ *
+ * Asked for, never assumed. Automatic activation is what broke sessions
+ * before, and the entry form holds its answers until an explicit Save.
+ */
+self.addEventListener('message', (event) => {
+  if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') {
+    void self.skipWaiting()
+  }
+})
+
 // Focus an open tab if there is one; otherwise open the board.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
