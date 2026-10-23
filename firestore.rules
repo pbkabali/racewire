@@ -150,6 +150,19 @@ service cloud.firestore {
       }
 
       /*
+       * Who changed what on this event.
+       *
+       * Super admins only, and writable by nobody: a log the people it audits
+       * can edit or delete is not evidence of anything. Cloud Functions bypass
+       * rules, so the trigger still writes it. Deliberately not readable by
+       * the event's own admins -- it exists to be read about them.
+       */
+      match /auditLog/{entryId} {
+        allow read: if isSuperAdmin();
+        allow write: if false;
+      }
+
+      /*
        * The delivery log: one row per recipient per channel per notice, which
        * is what lets an organiser answer "was this competitor told, and when".
        *

@@ -7,6 +7,7 @@ import {
   onDocumentCreated,
   onDocumentUpdated,
   onDocumentWritten,
+  onDocumentWrittenWithAuthContext,
 } from 'firebase-functions/v2/firestore'
 import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
@@ -15,6 +16,7 @@ import { loadEntryPdf } from './email/entryPdf.js'
 import { publishEntryList } from './entryList/publish.js'
 import { sendEntryConfirmation } from './email/sendEntryConfirmation.js'
 import { sendEntryNotification } from './email/sendEntryNotification.js'
+import { recordAudit } from './audit/log.js'
 import { describeError } from './errors.js'
 import { dispatchNotification } from './notify/dispatch.js'
 import { extractStatuses, isFromMeta } from './notify/metaWebhook.js'
@@ -537,5 +539,59 @@ export const sweepWhatsappFallbacks = onSchedule(
     }
 
     logger.info('whatsapp fallback sweep', { expired: expired.length, sent })
+  },
+)
+
+/**
+ * Who changed what, on everything an event owns.
+ *
+ * One wildcard rather than a trigger per collection: the collection id is
+ * just another path segment, so notices, documents, folders, schedule,
+ * entries and contacts all arrive here, and a collection added later is
+ * audited the day it exists rather than the day somebody remembers to add a
+ * trigger for it.
+ *
+ * WithAuthContext is the whole reason this is possible. An ordinary Firestore
+ * trigger sees the change and not the person, which would make the log a list
+ * of edits by nobody; this variant carries the uid of the signed-in client
+ * that made the write.
+ *
+ * Only four-segment paths match, so events/{id}/licences/{n}/details/{d} is
+ * out of scope — which is fine, as licences are skipped anyway.
+ */
+export const onEventDataChanged = onDocumentWrittenWithAuthContext(
+  'events/{eventId}/{collectionId}/{documentId}',
+  async (event) => {
+    await recordAudit({
+      eventId: event.params.eventId,
+      collectionId: event.params.collectionId,
+      documentId: event.params.documentId,
+      authId: event.authId,
+      authType: event.authType,
+      before: event.data?.before.data(),
+      after: event.data?.after.data(),
+    })
+  },
+)
+
+/**
+ * The event document itself: name, dates, status, logo, contact details.
+ *
+ * Separate because it sits one level up from its own subcollections, and a
+ * wildcard cannot span both depths. Logged under the event it describes, so
+ * an organiser reads one history rather than two.
+ */
+export const onEventChanged = onDocumentWrittenWithAuthContext(
+  'events/{eventId}',
+  async (event) => {
+    await recordAudit({
+      eventId: event.params.eventId,
+      collectionId: 'event',
+      documentId: event.params.eventId,
+      authId: event.authId,
+      authType: event.authType,
+      before: event.data?.before.data(),
+      after: event.data?.after.data(),
+    })
   },
 )
