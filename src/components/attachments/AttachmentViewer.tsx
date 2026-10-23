@@ -17,17 +17,31 @@ const PdfViewer = lazy(() =>
  * error boundaries have no hook equivalent.
  */
 class PdfBoundary extends Component<
-  { fallback: ReactNode; children: ReactNode },
-  { failed: boolean }
+  { fallback: (stale: boolean) => ReactNode; children: ReactNode },
+  { failed: boolean; stale: boolean }
 > {
-  state = { failed: false }
+  state = { failed: false, stale: false }
 
-  static getDerivedStateFromError() {
-    return { failed: true }
+  static getDerivedStateFromError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    /*
+     * Two very different faults land here and used to read as one.
+     *
+     * A genuinely old engine throws while parsing the module. A deploy that
+     * replaced the chunk this page was built against fails to fetch it at
+     * all -- nothing to do with the browser, and fixed by reloading. Telling
+     * somebody their phone cannot show PDFs when the real answer is "pull to
+     * reload" sends them off to find another device.
+     */
+    const stale =
+      /dynamically imported module|Importing a module script failed|Failed to fetch|error loading/i.test(
+        message,
+      )
+    return { failed: true, stale }
   }
 
   render() {
-    return this.state.failed ? this.props.fallback : this.props.children
+    return this.state.failed ? this.props.fallback(this.state.stale) : this.props.children
   }
 }
 
@@ -162,18 +176,36 @@ export function AttachmentViewer({
           />
         ) : (
           <PdfBoundary
-            fallback={
+            fallback={(stale) => (
               <div className="flex h-[60vh] flex-col items-center justify-center gap-3 px-6 text-center">
                 <p className="text-sm text-white/80">
-                  This browser cannot display the PDF inside the app.
+                  {stale
+                    ? 'The app was updated while this was open. Reload to view the document.'
+                    : 'This browser cannot display the PDF inside the app.'}
                 </p>
+
+                {/* Offered rather than done automatically: a reload the app
+                    chose could land mid-entry-form, which holds its answers
+                    until an explicit Save. */}
+                {stale && (
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="rounded border border-white/30 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Reload
+                  </button>
+                )}
+
                 {/* iOS renders PDFs natively when navigated to directly, so
                     the same file that will not open here opens in a tab. */}
                 <a
                   href={attachment.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded border border-white/30 px-4 py-2 text-sm font-semibold text-white"
+                  className={`rounded border border-white/30 px-4 py-2 text-sm font-semibold text-white ${
+                    stale ? 'border-white/20 text-white/80' : ''
+                  }`}
                 >
                   Open in browser
                 </a>
@@ -185,7 +217,7 @@ export function AttachmentViewer({
                   or download it
                 </button>
               </div>
-            }
+            )}
           >
             <Suspense
               // Covers fetching the pdf.js chunk itself, which is the first wait
