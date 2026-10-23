@@ -344,6 +344,60 @@ function AddForm({
   )
 }
 
+/**
+ * What the importer actually understood, before it writes anything.
+ *
+ * A count alone says a paste parsed, not that it parsed correctly. Every way
+ * this can go wrong -- a header that slipped through, columns in a different
+ * order, a merge that shifted a row -- is obvious the moment the fields are
+ * shown under their own names, and invisible until then.
+ *
+ * A table rather than a stacked list, because the fault being looked for is
+ * misalignment, and misalignment is only visible in columns. It scrolls
+ * inside its own box so a narrow phone never pans the page.
+ */
+function ImportPreview({ items }: { items: Draft[] }) {
+  const shown = items.slice(0, 6)
+
+  return (
+    <div className="mt-3">
+      <p className="mb-1 text-xs text-fg-muted">
+        {items.length} item{items.length === 1 ? '' : 's'} found. Check the columns
+        landed where they should:
+      </p>
+
+      <div className="overflow-x-auto rounded-md border border-edge">
+        <table className="w-full min-w-[32rem] text-left text-xs">
+          <thead className="bg-surface-raised text-[10px] tracking-wide text-fg-subtle uppercase">
+            <tr>
+              <th className="px-2 py-1 font-semibold">Day heading</th>
+              <th className="px-2 py-1 font-semibold">Activity</th>
+              <th className="px-2 py-1 font-semibold">When</th>
+              <th className="px-2 py-1 font-semibold">Place</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-edge">
+            {shown.map((item, index) => (
+              <tr key={index}>
+                <td className="px-2 py-1 text-fg-muted">{item.day || '—'}</td>
+                <td className="px-2 py-1 text-fg">{item.activity || '—'}</td>
+                <td className="px-2 py-1 font-mono text-fg">{item.when || '—'}</td>
+                <td className="px-2 py-1 text-fg-muted">{item.place || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {items.length > shown.length && (
+        <p className="mt-1 text-xs text-fg-subtle">
+          …and {items.length - shown.length} more.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function ImportCard({
   eventCode,
   existing,
@@ -433,11 +487,7 @@ function ImportCard({
         className="mt-3 w-full rounded-md border border-edge bg-bg px-3 py-2 font-mono text-xs text-fg placeholder:text-fg-subtle"
       />
 
-      {parsed.length > 0 && (
-        <p className="mt-2 text-xs text-fg-muted">
-          {parsed.length} item{parsed.length === 1 ? '' : 's'} found.
-        </p>
-      )}
+      {parsed.length > 0 && <ImportPreview items={parsed} />}
 
       {/* Saying so beats splitting on commas and hoping: every date in a
           programme has one, so a guess would shift every column along. */}
