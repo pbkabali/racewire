@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, useRef, type ReactNode } from 'react'
 
 import { downloadAttachment, type Attachment } from '../../lib/firebase/storage'
 import { Spinner } from './PdfLoading'
@@ -17,17 +17,31 @@ const PdfViewer = lazy(() =>
  * error boundaries have no hook equivalent.
  */
 class PdfBoundary extends Component<
-  { fallback: ReactNode; children: ReactNode },
-  { failed: boolean }
+  { fallback: (stale: boolean) => ReactNode; children: ReactNode },
+  { failed: boolean; stale: boolean }
 > {
-  state = { failed: false }
+  state = { failed: false, stale: false }
 
-  static getDerivedStateFromError() {
-    return { failed: true }
+  static getDerivedStateFromError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error)
+    /*
+     * Two very different faults land here and used to read as one.
+     *
+     * A genuinely old engine throws while parsing the module. A deploy that
+     * replaced the chunk this page was built against fails to fetch it at
+     * all -- nothing to do with the browser, and fixed by reloading. Telling
+     * somebody their phone cannot show PDFs when the real answer is "pull to
+     * reload" sends them off to find another device.
+     */
+    const stale =
+      /dynamically imported module|Importing a module script failed|Failed to fetch|error loading/i.test(
+        message,
+      )
+    return { failed: true, stale }
   }
 
   render() {
-    return this.state.failed ? this.props.fallback : this.props.children
+    return this.state.failed ? this.props.fallback(this.state.stale) : this.props.children
   }
 }
 
@@ -48,6 +62,49 @@ export function AttachmentViewer({
    */
   action?: ReactNode
 }) {
+  const header = useRef<HTMLElement>(null)
+
+  /*
+   * Keep the toolbar on screen while the page is pinch-zoomed.
+   *
+   * `position: fixed` anchors to the LAYOUT viewport, but pinch-zoom moves
+   * the VISUAL viewport inside it. Zoom into a document and pan, and the
+   * toolbar stays pinned to a corner of the page you are no longer looking
+   * at -- so Close becomes unreachable and the only way out is to zoom all
+   * the way back first. On a phone, where Escape does not exist, that was
+   * the only way out at all.
+   *
+   * Counter-transforming by the visual viewport's offset and scale pins the
+   * bar to what the reader can actually see, at a constant on-screen size.
+   * Width stays 100%: an element scaled by 1/scale needs an unscaled width of
+   * visualWidth * scale to cover the visible area, and that is exactly the
+   * layout width it already has.
+   *
+   * At scale 1 this resolves to the identity transform, so the ordinary case
+   * pays nothing and the bar sits in normal flow.
+   */
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+
+    const pin = () => {
+      const node = header.current
+      if (!node) return
+      node.style.transformOrigin = 'top left'
+      node.style.transform =
+        `translate(${viewport.offsetLeft}px, ${viewport.offsetTop}px) ` +
+        `scale(${1 / viewport.scale})`
+    }
+
+    pin()
+    viewport.addEventListener('resize', pin)
+    viewport.addEventListener('scroll', pin)
+    return () => {
+      viewport.removeEventListener('resize', pin)
+      viewport.removeEventListener('scroll', pin)
+    }
+  }, [])
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -72,8 +129,12 @@ export function AttachmentViewer({
       className="fixed inset-0 z-50 flex flex-col bg-black/90"
       onClick={onClose}
     >
+      {/* Opaque and above the content: once zoomed, the bar floats over the
+          page rather than sitting above it, and white-on-white is no more
+          reachable than off-screen. */}
       <header
-        className="flex items-center gap-3 px-4 py-3 text-white"
+        ref={header}
+        className="relative z-10 flex shrink-0 items-center gap-3 bg-black/90 px-4 py-3 text-white"
         onClick={(event) => event.stopPropagation()}
       >
         <p className="min-w-0 flex-1 truncate text-sm font-semibold">{attachment.name}</p>
@@ -115,18 +176,36 @@ export function AttachmentViewer({
           />
         ) : (
           <PdfBoundary
-            fallback={
+            fallback={(stale) => (
               <div className="flex h-[60vh] flex-col items-center justify-center gap-3 px-6 text-center">
                 <p className="text-sm text-white/80">
-                  This browser cannot display the PDF inside the app.
+                  {stale
+                    ? 'The app was updated while this was open. Reload to view the document.'
+                    : 'This browser cannot display the PDF inside the app.'}
                 </p>
+
+                {/* Offered rather than done automatically: a reload the app
+                    chose could land mid-entry-form, which holds its answers
+                    until an explicit Save. */}
+                {stale && (
+                  <button
+                    type="button"
+                    onClick={() => window.location.reload()}
+                    className="rounded border border-white/30 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Reload
+                  </button>
+                )}
+
                 {/* iOS renders PDFs natively when navigated to directly, so
                     the same file that will not open here opens in a tab. */}
                 <a
                   href={attachment.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded border border-white/30 px-4 py-2 text-sm font-semibold text-white"
+                  className={`rounded border border-white/30 px-4 py-2 text-sm font-semibold text-white ${
+                    stale ? 'border-white/20 text-white/80' : ''
+                  }`}
                 >
                   Open in browser
                 </a>
@@ -138,7 +217,7 @@ export function AttachmentViewer({
                   or download it
                 </button>
               </div>
-            }
+            )}
           >
             <Suspense
               // Covers fetching the pdf.js chunk itself, which is the first wait
