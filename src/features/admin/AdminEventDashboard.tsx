@@ -9,6 +9,7 @@ import { AdminDocumentsPanel } from '../documents/AdminDocumentsPanel'
 import { formatEventDates, type Event } from '../events/types'
 import { EventSharePanel } from './EventSharePanel'
 import { AdminNoticesPanel } from './AdminNoticesPanel'
+import { AdminAuditPanel } from './AdminAuditPanel'
 import { AdminNotificationsPanel } from './AdminNotificationsPanel'
 import { AdminSchedulePanel } from './AdminSchedulePanel'
 import { AdminEntriesPanel } from '../forms/AdminEntriesPanel'
@@ -24,6 +25,9 @@ const TABS = [
   'notify',
   'share',
   'settings',
+  // Super admins only: the rules refuse the read to anybody else, so showing
+  // the tab to an event admin would offer them a permission error.
+  'audit',
 ] as const
 
 type Tab = (typeof TABS)[number]
@@ -36,7 +40,7 @@ type Tab = (typeof TABS)[number]
 export function AdminEventDashboard() {
   const { code } = useParams<{ code: string }>()
   const eventCode = (code ?? '').toUpperCase()
-  const { user } = useAuth()
+  const { user, scope } = useAuth()
   const [event, setEvent] = useState<Event | null>(null)
   const [tab, setTab] = useState<Tab>('notices')
 
@@ -85,7 +89,7 @@ export function AdminEventDashboard() {
         role="tablist"
         className="-mx-4 flex gap-1 overflow-x-auto border-b border-edge px-4 sm:mx-0 sm:px-0"
       >
-        {TABS.map((value) => (
+        {TABS.filter((value) => value !== 'audit' || scope.superAdmin).map((value) => (
           <button
             key={value}
             role="tab"
@@ -108,6 +112,7 @@ export function AdminEventDashboard() {
       {tab === 'entries' && <AdminEntriesPanel eventCode={eventCode} />}
       {tab === 'licences' && <AdminLicencesPanel eventCode={eventCode} />}
       {tab === 'notify' && <AdminNotificationsPanel eventCode={eventCode} />}
+      {tab === 'audit' && scope.superAdmin && <AdminAuditPanel eventCode={eventCode} />}
       {tab === 'share' &&
         (event ? (
           <EventSharePanel event={event} />
