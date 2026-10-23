@@ -17,6 +17,38 @@ export type Draft = { day: string; activity: string; when: string; place: string
  * day's rows pastes those cells empty, and a heading that vanishes halfway
  * down a day is worse than no grouping at all.
  */
+/*
+ * Words that only ever appear as a column heading in a programme. A cell has
+ * to be the whole word -- an activity called "Recce" or a place called
+ * "Venue 2" is not a header, and must not be swallowed.
+ */
+const HEADER_WORDS = new Set([
+  'activity', 'activities', 'item', 'event', 'description',
+  'date', 'day', 'dates',
+  'time', 'times', 'when', 'target time',
+  'place', 'venue', 'location', 'where',
+])
+
+/**
+ * Is this row the table's heading rather than a line of the programme?
+ *
+ * Two matching cells rather than one, and checked on every row rather than
+ * only the first. One cell is too easy to hit by accident; and a long table
+ * in Word repeats its header across a page break, so a header can appear
+ * halfway down a paste.
+ *
+ * Matching only the first cell -- as this did -- meant a table whose first
+ * column was called anything else slipped through, and it did more than add a
+ * junk row: the header set the running day to the literal word "Date", so the
+ * first real row, whose date cell is blank because it is merged, inherited
+ * "Date" as its heading. A wrong heading at the top of a programme is the
+ * kind of thing nobody reads twice.
+ */
+function looksLikeHeader(cells: string[]): boolean {
+  const matches = cells.filter((cell) => HEADER_WORDS.has(cell.toLowerCase())).length
+  return matches >= 2
+}
+
 export type ParseResult = {
   items: Draft[]
   /** Lines that carried no tab, so could not be split into columns. */
@@ -38,8 +70,7 @@ export function parseSchedule(paste: string): ParseResult {
   for (const cells of rows) {
     const [activity = '', second = '', third = '', fourth = ''] = cells
 
-    // The header row of the pasted table, in whatever case it was written.
-    if (/^activity$/i.test(activity)) continue
+    if (looksLikeHeader(cells)) continue
     if (!activity) continue
     if (cells.length === 1) tabless++
 
