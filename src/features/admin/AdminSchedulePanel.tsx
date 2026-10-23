@@ -7,9 +7,10 @@ import {
   updateDoc,
   writeBatch,
 } from 'firebase/firestore'
-import { useState, type FormEvent } from 'react'
+import { useState, type ClipboardEvent, type FormEvent } from 'react'
 
 import { db, eventCollections, eventPath } from '../../lib/firebase/db'
+import { htmlTableToTsv } from '../schedule/htmlTable'
 import { parseSchedule, type Draft } from '../schedule/parseSchedule'
 import type { ScheduleItem } from '../schedule/types'
 import { useSchedule } from '../schedule/useSchedule'
@@ -361,6 +362,23 @@ function ImportCard({
     ? parseSchedule(paste)
     : { items: [], tabless: 0 }
 
+  /*
+   * Take the table off the clipboard rather than the text.
+   *
+   * Google Docs' plain-text flavour of a table has no column separators at
+   * all, so a straight paste arrives as one undifferentiated block. Its HTML
+   * flavour is the real table, in every editor worth pasting from. Appends
+   * rather than replaces, so a programme split across two tables can be
+   * pasted in two goes.
+   */
+  function onPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    const tsv = htmlTableToTsv(event.clipboardData.getData('text/html'))
+    // No table on the clipboard: let the ordinary plain-text paste happen.
+    if (!tsv) return
+    event.preventDefault()
+    setPaste((current) => (current.trim() ? `${current.trimEnd()}\n${tsv}` : tsv))
+  }
+
   async function run() {
     setImporting(true)
     onError(null)
@@ -399,15 +417,17 @@ function ImportCard({
     <section className="rounded-lg border border-edge bg-surface p-4">
       <h2 className="font-semibold text-fg">Import the programme</h2>
       <p className="mt-1 text-xs text-fg-subtle">
-        Copy the programme table out of the regulations — Word or Excel — and paste it
-        here. Columns are read as <strong className="font-semibold">Activity, Date,
-        Time, Place</strong>. A blank date carries the one above it down, so a table
-        with the date merged across a day still groups correctly.
+        Copy the programme table out of the regulations — Google Docs, Word or Excel —
+        and paste it here. Columns are read as{' '}
+        <strong className="font-semibold">Activity, Date, Time, Place</strong>. Merged
+        date cells carry down, so a table with one date spanning a day's rows still
+        groups correctly.
       </p>
 
       <textarea
         value={paste}
         onChange={(e) => setPaste(e.target.value)}
+        onPaste={onPaste}
         rows={5}
         placeholder={'Scrutineering\tFriday 30th October, 2026\t13:00 - 17:00hrs\tShell Kyenjojo'}
         className="mt-3 w-full rounded-md border border-edge bg-bg px-3 py-2 font-mono text-xs text-fg placeholder:text-fg-subtle"
