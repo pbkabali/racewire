@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, type ReactNode } from 'react'
+import { Component, lazy, Suspense, useEffect, useRef, type ReactNode } from 'react'
 
 import { downloadAttachment, type Attachment } from '../../lib/firebase/storage'
 import { Spinner } from './PdfLoading'
@@ -48,6 +48,49 @@ export function AttachmentViewer({
    */
   action?: ReactNode
 }) {
+  const header = useRef<HTMLElement>(null)
+
+  /*
+   * Keep the toolbar on screen while the page is pinch-zoomed.
+   *
+   * `position: fixed` anchors to the LAYOUT viewport, but pinch-zoom moves
+   * the VISUAL viewport inside it. Zoom into a document and pan, and the
+   * toolbar stays pinned to a corner of the page you are no longer looking
+   * at -- so Close becomes unreachable and the only way out is to zoom all
+   * the way back first. On a phone, where Escape does not exist, that was
+   * the only way out at all.
+   *
+   * Counter-transforming by the visual viewport's offset and scale pins the
+   * bar to what the reader can actually see, at a constant on-screen size.
+   * Width stays 100%: an element scaled by 1/scale needs an unscaled width of
+   * visualWidth * scale to cover the visible area, and that is exactly the
+   * layout width it already has.
+   *
+   * At scale 1 this resolves to the identity transform, so the ordinary case
+   * pays nothing and the bar sits in normal flow.
+   */
+  useEffect(() => {
+    const viewport = window.visualViewport
+    if (!viewport) return
+
+    const pin = () => {
+      const node = header.current
+      if (!node) return
+      node.style.transformOrigin = 'top left'
+      node.style.transform =
+        `translate(${viewport.offsetLeft}px, ${viewport.offsetTop}px) ` +
+        `scale(${1 / viewport.scale})`
+    }
+
+    pin()
+    viewport.addEventListener('resize', pin)
+    viewport.addEventListener('scroll', pin)
+    return () => {
+      viewport.removeEventListener('resize', pin)
+      viewport.removeEventListener('scroll', pin)
+    }
+  }, [])
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -72,8 +115,12 @@ export function AttachmentViewer({
       className="fixed inset-0 z-50 flex flex-col bg-black/90"
       onClick={onClose}
     >
+      {/* Opaque and above the content: once zoomed, the bar floats over the
+          page rather than sitting above it, and white-on-white is no more
+          reachable than off-screen. */}
       <header
-        className="flex items-center gap-3 px-4 py-3 text-white"
+        ref={header}
+        className="relative z-10 flex shrink-0 items-center gap-3 bg-black/90 px-4 py-3 text-white"
         onClick={(event) => event.stopPropagation()}
       >
         <p className="min-w-0 flex-1 truncate text-sm font-semibold">{attachment.name}</p>
