@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Brand } from '../../components/Brand'
@@ -42,7 +43,7 @@ export function EventPickerPage() {
           </p>
         )}
 
-        {loading && <SkeletonList />}
+        {loading && <LoadingEvents />}
 
         {!loading && !error && events.length === 0 && (
           <p className="mt-6 rounded-lg border border-edge bg-surface p-6 text-center text-sm text-fg-muted">
@@ -118,12 +119,46 @@ function EventCard({ event }: { event: Event }) {
   )
 }
 
-function SkeletonList() {
+/**
+ * Shown while the first load is in flight.
+ *
+ * This replaced three pulsing placeholder bars. They were the better pattern
+ * in principle -- a skeleton says what is coming, a spinner only says that
+ * something is -- but in the dark theme `surface` sits a shade off `bg`, so
+ * on a phone they read as an empty screen rather than as work in progress.
+ *
+ * Held back for a moment before appearing. Firestore serves this list from
+ * IndexedDB on every launch after the first, which resolves in tens of
+ * milliseconds, and a spinner that appears and vanishes inside a single frame
+ * reads as a glitch. The delay costs nothing on the cold launch this exists
+ * for -- reaching the network is never that quick -- and keeps every warm
+ * launch perfectly still.
+ */
+const SPINNER_DELAY_MS = 250
+
+function LoadingEvents() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(true), SPINNER_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (!visible) return null
+
   return (
-    <div className="mt-6 space-y-2" aria-busy="true" aria-label="Loading events">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="h-[72px] animate-pulse rounded-lg bg-surface" />
-      ))}
+    <div
+      role="status"
+      aria-live="polite"
+      className="mt-10 flex flex-col items-center gap-3 py-8"
+    >
+      {/* Matches the spinner in PullToRefresh so the app has one of these,
+          not two. Static under reduced motion -- the label still says it. */}
+      <span
+        aria-hidden
+        className="h-8 w-8 animate-spin rounded-full border-2 border-edge border-t-accent motion-reduce:animate-none"
+      />
+      <p className="text-sm text-fg-muted">Loading events…</p>
     </div>
   )
 }
