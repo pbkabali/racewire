@@ -10,11 +10,21 @@ import { formatEventDates, type Event } from '../events/types'
 import { EventSharePanel } from './EventSharePanel'
 import { AdminNoticesPanel } from './AdminNoticesPanel'
 import { AdminNotificationsPanel } from './AdminNotificationsPanel'
+import { AdminSchedulePanel } from './AdminSchedulePanel'
 import { AdminEntriesPanel } from '../forms/AdminEntriesPanel'
 import { AdminLicencesPanel } from '../forms/AdminLicencesPanel'
 import { EventEditor } from './EventEditor'
 
-const TABS = ['notices', 'documents', 'entries', 'licences', 'notify', 'share', 'settings'] as const
+const TABS = [
+  'notices',
+  'schedule',
+  'documents',
+  'entries',
+  'licences',
+  'notify',
+  'share',
+  'settings',
+] as const
 
 type Tab = (typeof TABS)[number]
 
@@ -93,6 +103,7 @@ export function AdminEventDashboard() {
       </div>
 
       {tab === 'notices' && <AdminNoticesPanel eventCode={eventCode} />}
+      {tab === 'schedule' && <AdminSchedulePanel eventCode={eventCode} />}
       {tab === 'documents' && <AdminDocumentsPanel eventCode={eventCode} />}
       {tab === 'entries' && <AdminEntriesPanel eventCode={eventCode} />}
       {tab === 'licences' && <AdminLicencesPanel eventCode={eventCode} />}

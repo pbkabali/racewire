@@ -52,6 +52,12 @@ service cloud.firestore {
         allow write: if manages(eventId);
       }
 
+      // The rally programme. Public like the rest of the board.
+      match /schedule/{itemId} {
+        allow read: if true;
+        allow write: if manages(eventId);
+      }
+
       match /documents/{documentId} {
         allow read: if true;
         allow write: if manages(eventId);
