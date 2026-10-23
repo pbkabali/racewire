@@ -62,6 +62,8 @@ export const eventCollections = {
   contacts: 'contacts',
   /** One row per recipient per channel per send. Written by Cloud Functions. */
   notifications: 'notifications',
+  /** Who changed what on this event. Written by Cloud Functions, read by super admins. */
+  auditLog: 'auditLog',
 } as const
 
 type EventCollection = (typeof eventCollections)[keyof typeof eventCollections]
