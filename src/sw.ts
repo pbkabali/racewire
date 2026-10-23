@@ -106,10 +106,31 @@ registerRoute(
   }),
 )
 
-// Take over immediately so a returning spectator gets the newest board rather
-// than whatever was cached when they last had signal.
-self.skipWaiting()
-self.addEventListener('activate', () => self.clients.claim())
+/*
+ * Deliberately NOT skipWaiting()/clients.claim().
+ *
+ * Those two made a new worker seize an already-open page, and
+ * cleanupOutdatedCaches() then deleted the precache that page was still
+ * running from. The HTML and main bundle in memory reference chunk filenames
+ * by content hash, so the next lazy import -- opening a PDF, the entry form,
+ * any admin screen -- asked for a file that no longer existed in the cache or
+ * on the server. It surfaced as "This browser cannot display the PDF", which
+ * blamed the phone for a cache we had pulled out from under it.
+ *
+ * The usual companion to skipWaiting is reloading the page on
+ * controllerchange. That is not safe here: the entry form holds its answers
+ * in component state and only writes them on an explicit Save, so a reload
+ * timed by our deploys would throw away a half-filled entry — passport
+ * details, next of kin and all — at a moment of our choosing, not the
+ * competitor's.
+ *
+ * So the new worker waits instead. The running page keeps the cache it was
+ * loaded with and stays coherent; the update applies on the next cold start,
+ * which for an installed app is the next launch. A spectator relaunching
+ * still gets the newest board, which is what the previous behaviour was
+ * reaching for — it simply no longer breaks the session already in progress
+ * to do it.
+ */
 
 const messaging = getMessaging(initializeApp(firebaseConfig))
 
