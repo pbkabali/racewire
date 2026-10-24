@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { Brand } from '../../components/Brand'
+import { SponsorStrip } from '../sponsors/SponsorStrip'
+import { useAppSponsors } from '../sponsors/useSponsors'
 import { InstallPrompt } from '../../components/InstallPrompt'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { formatEventDates, type Event, type EventStatus } from './types'
@@ -16,6 +18,7 @@ const STATUS_LABEL: Record<EventStatus, string> = {
 /** The landing screen. Everything else in the app hangs off choosing an event. */
 export function EventPickerPage() {
   const { events, loading, fromCache, error } = useEvents()
+  const appSponsors = useAppSponsors()
   const groups = groupByStatus(events)
 
   return (
@@ -70,6 +73,8 @@ export function EventPickerPage() {
             </section>
           ),
         )}
+        {/* Only the app's own sponsors here: no event is chosen yet. */}
+        <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
       </main>
     </div>
   )

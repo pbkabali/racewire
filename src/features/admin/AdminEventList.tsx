@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { APP_SPONSORS } from '../sponsors/useSponsors'
+import { AdminSponsorsPanel } from './AdminSponsorsPanel'
 
 import { useAuth } from '../../app/providers/useAuth'
 import { signOut } from '../../lib/firebase/auth'
@@ -131,6 +133,19 @@ export function AdminEventList() {
             <span aria-hidden>+</span> New event
           </button>
         ))}
+
+      {/* Super admins only: an organiser with one rally has no business
+          editing what every other rally displays. The rules say so too. */}
+      {scope.superAdmin && (
+        <div className="mt-8">
+          <AdminSponsorsPanel
+            path={APP_SPONSORS}
+            uploadFolder="sponsors"
+            title="Racewire partners"
+            description="Shown on every event and on the event picker, whichever event is open."
+          />
+        </div>
+      )}
     </div>
   )
 }

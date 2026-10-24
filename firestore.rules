@@ -58,6 +58,12 @@ service cloud.firestore {
         allow write: if manages(eventId);
       }
 
+      // This event's sponsor board. Public, like the logos on the cars.
+      match /sponsors/{sponsorId} {
+        allow read: if true;
+        allow write: if manages(eventId);
+      }
+
       match /documents/{documentId} {
         allow read: if true;
         allow write: if manages(eventId);
@@ -174,6 +180,19 @@ service cloud.firestore {
         allow read: if manages(eventId);
         allow write: if false;
       }
+    }
+
+    /*
+     * Sponsors of the app itself, shown on every event and on the picker.
+     *
+     * Outside any event because they belong to none of them, which also means
+     * manages() cannot apply: only a super admin may change them, since an
+     * organiser with access to one rally has no business editing what every
+     * other rally displays.
+     */
+    match /sponsors/{sponsorId} {
+      allow read: if true;
+      allow write: if isSuperAdmin();
     }
 
     /*
