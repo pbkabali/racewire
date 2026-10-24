@@ -15,6 +15,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * discard a half-filled entry at a moment of our choosing rather than the
  * competitor's.
  */
+/*
+ * Three different signals can conclude that the new worker is live, and any
+ * of them may arrive first. Module scope rather than a ref, because a reload
+ * tears the component down and the guard has to outlive it.
+ */
+let reloading = false
+
+function reloadOnce() {
+  if (reloading) return
+  reloading = true
+  window.location.reload()
+}
+
 export function useAppUpdate(): { ready: boolean; apply: () => void } {
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null)
   /* Only a reload WE asked for should happen. A controller can change for
@@ -51,8 +64,7 @@ export function useAppUpdate(): { ready: boolean; apply: () => void } {
 
     const onControllerChange = () => {
       if (!requested.current) return
-      requested.current = false
-      window.location.reload()
+      reloadOnce()
     }
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange)
 
@@ -65,7 +77,38 @@ export function useAppUpdate(): { ready: boolean; apply: () => void } {
   const apply = useCallback(() => {
     if (!waiting) return
     requested.current = true
+
+    /*
+     * Reload when the new worker is actually running, rather than waiting for
+     * controllerchange alone.
+     *
+     * controllerchange only fires for a page a worker already controls, and
+     * an uncontrolled page is not an edge case: it is every first visit until
+     * the worker activates and claims. Relying on it meant Reload did
+     * everything right -- posted the message, activated the worker -- and
+     * then sat there, which reads as a dead button.
+     *
+     * Watching the worker's own state covers both: controlled or not, it
+     * reaches `activated`, and that is the moment the new assets are live.
+     */
+    const onStateChange = () => {
+      if (waiting.state === 'activated') {
+        waiting.removeEventListener('statechange', onStateChange)
+        reloadOnce()
+      }
+    }
+
+    if (waiting.state === 'activated') return reloadOnce()
+    waiting.addEventListener('statechange', onStateChange)
     waiting.postMessage({ type: 'SKIP_WAITING' })
+
+    /*
+     * And a floor under it. Somebody who taps Reload has asked plainly; if
+     * neither signal arrives -- a worker wedged mid-activation, a browser
+     * that does not deliver the event -- reloading anyway is closer to what
+     * they asked for than a button that quietly did nothing.
+     */
+    window.setTimeout(reloadOnce, 3000)
   }, [waiting])
 
   return { ready: waiting !== null, apply }
