@@ -50,6 +50,8 @@ export function EventEditor({
   const [endsOn, setEndsOn] = useState(toDateInput(event?.endsOn))
   const [contactEmail, setContactEmail] = useState(event?.contactEmail ?? '')
   const [contactPhone, setContactPhone] = useState(event?.contactPhone ?? '')
+  const [mapUrl, setMapUrl] = useState(event?.mapUrl ?? '')
+  const [trackingUrl, setTrackingUrl] = useState(event?.trackingUrl ?? '')
   const [logo, setLogo] = useState<File | null>(null)
 
   const [busy, setBusy] = useState(false)
@@ -113,6 +115,8 @@ export function EventEditor({
         status,
         contactEmail: contactEmail.trim(),
         contactPhone: contactPhone.trim(),
+        mapUrl: mapUrl.trim(),
+        trackingUrl: trackingUrl.trim(),
         logoUrl,
         logoPath,
         // Local midnight, so the date shown matches the date typed.
@@ -328,6 +332,44 @@ export function EventEditor({
             />
           </label>
         </div>
+      </fieldset>
+
+      <fieldset className="space-y-3 rounded-lg border border-edge p-4">
+        <legend className="px-1 text-xs font-semibold tracking-wide text-fg-muted uppercase">
+          Links
+        </legend>
+        <p className="text-xs text-fg-subtle">
+          Both are public and open in a new tab. The route map is linked rather than
+          uploaded so it stays current — edit it in Google My Maps and the app follows,
+          with no republishing. A <strong className="font-semibold">/maps/d/</strong>{' '}
+          link is shown inside the app; a shortened one can only be opened in Maps.
+        </p>
+
+        <label className="block">
+          <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+            Route map
+          </span>
+          <input
+            type="url"
+            value={mapUrl}
+            onChange={(e) => setMapUrl(e.target.value)}
+            placeholder="https://www.google.com/maps/d/viewer?mid=…"
+            className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg placeholder:text-fg-subtle"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+            Live tracking
+          </span>
+          <input
+            type="url"
+            value={trackingUrl}
+            onChange={(e) => setTrackingUrl(e.target.value)}
+            placeholder="https://tracking.example.com/umc2026"
+            className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg placeholder:text-fg-subtle"
+          />
+        </label>
       </fieldset>
 
       <label className="block">

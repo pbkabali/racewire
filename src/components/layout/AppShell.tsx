@@ -16,7 +16,7 @@ const navItems = [
   { to: 'notices', label: 'Notices', end: false },
   { to: 'schedule', label: 'Schedule', end: false },
   { to: 'docs', label: 'Docs', end: false },
-  { to: 'results', label: 'Results', end: false },
+  { to: 'live', label: 'Live', end: false },
 ]
 
 /**
