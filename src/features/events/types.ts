@@ -51,6 +51,15 @@ export type Event = {
    */
   contactEmail?: string
   contactPhone?: string
+  /**
+   * The organiser's live route map, normally a Google My Maps link.
+   *
+   * A link rather than an uploaded file so it is current by construction:
+   * the alternative is an export that goes stale the moment a stage moves.
+   */
+  mapUrl?: string
+  /** External live tracking, opened in its own tab. */
+  trackingUrl?: string
   /** Storage download URL. Empty string when no logo has been uploaded. */
   logoUrl: string
   /** Storage path, kept so the logo can be replaced or deleted later. */

@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 
 import { ErrorScreen } from '../components/ErrorScreen'
 import { Loading } from '../components/Loading'
@@ -9,7 +9,8 @@ import { EventLayout } from '../features/events/EventLayout'
 import { EventPickerPage } from '../features/events/EventPickerPage'
 import { NoticesPage } from '../features/notices/NoticesPage'
 import { SchedulePage } from '../features/schedule/SchedulePage'
-import { ResultsPage } from '../features/results/ResultsPage'
+import { LivePage } from '../features/live/LivePage'
+import { MapPage } from '../features/map/MapPage'
 import {
   AdminEventDashboard,
   AdminEventList,
@@ -48,7 +49,14 @@ export const router = createBrowserRouter([
           { path: 'schedule', element: <SchedulePage /> },
           { path: 'docs', element: <DocumentsPage /> },
           { path: 'docs/fill/:documentId', element: lazy(<FillFormPage />) },
-          { path: 'results', element: <ResultsPage /> },
+          { path: 'live', element: <LivePage /> },
+          { path: 'map', element: <MapPage /> },
+          /*
+           * The tab was called Results until it became Live. Anybody holding
+           * a link from a bulletin or a WhatsApp message still lands
+           * somewhere, rather than on the not-found page.
+           */
+          { path: 'results', element: <Navigate to="../live" replace /> },
         ],
       },
 

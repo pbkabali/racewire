@@ -29,10 +29,16 @@ const SECTIONS = [
     icon: <path d="M6 2.5h7l4 4V19a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Zm7 0V7h4M8 11h6M8 15h6" />,
   },
   {
-    to: 'results',
-    title: 'Results',
-    description: 'Times and standings as they come in.',
+    to: 'live',
+    title: 'Live',
+    description: 'Tracking, and unofficial times as they come in.',
     icon: <path d="M4 3.5h9v9H4zM4 3.5v16M4 12.5l9-.01M13 6h7l-2 3 2 3h-7" />,
+  },
+  {
+    to: 'map',
+    title: 'Route map',
+    description: 'Stages, service parks and the way between them.',
+    icon: <path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20V6.5ZM9 4v13.5M15 6.5V20" />,
   },
 ]
 
