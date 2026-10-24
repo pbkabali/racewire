@@ -1,4 +1,6 @@
 import { useEvent } from '../events/useEvent'
+import { SponsorStrip } from '../sponsors/SponsorStrip'
+import { useAppSponsors, useEventSponsors } from '../sponsors/useSponsors'
 
 /**
  * Live tracking and running results.
@@ -14,6 +16,8 @@ import { useEvent } from '../events/useEvent'
  */
 export function LivePage() {
   const event = useEvent()
+  const eventSponsors = useEventSponsors(event.code)
+  const appSponsors = useAppSponsors()
 
   return (
     <div className="space-y-4">
@@ -56,6 +60,12 @@ export function LivePage() {
           </p>
         </div>
       </section>
+
+      {/* Always here, not only when there is something to show above them.
+          Live is the screen people sit on during a rally, so it is the one
+          where a board is actually seen. */}
+      <SponsorStrip title="Event partners" sponsors={eventSponsors} />
+      <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
     </div>
   )
 }

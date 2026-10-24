@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useMatch } from 'react-router-dom'
 
 import { useAuth } from '../../app/providers/useAuth'
 import { EventContact } from '../../features/events/EventContact'
@@ -40,6 +40,13 @@ export function AppShell() {
   const event = useEvent()
   const { scope } = useAuth()
   const canManage = canManageEvent(scope, event.code)
+
+  /*
+   * The organiser's contact details live in the layout, so every tab gets
+   * them. Live is the exception: it ends in sponsor boards, and a contact
+   * block under those reads as part of the last one.
+   */
+  const onLive = useMatch('/e/:code/live') !== null
 
   return (
     <div className="flex min-h-dvh flex-col overscroll-none-y">
@@ -110,7 +117,7 @@ export function AppShell() {
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-4 pb-20 sm:px-6 sm:pb-8">
         <InstallPrompt />
         <Outlet />
-        <EventContact />
+        {!onLive && <EventContact />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-edge bg-surface pb-[env(safe-area-inset-bottom)] sm:hidden">

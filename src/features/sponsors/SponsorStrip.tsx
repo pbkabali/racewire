@@ -68,17 +68,15 @@ export function SponsorStrip({ title, sponsors }: { title: string; sponsors: Spo
         onPointerDown={() => setPaused(true)}
         onFocusCapture={() => setPaused(true)}
         /*
-         * scroll-pl-4 is not decoration. snap-start aligns an item with the
-         * snapport's start edge, and the snapport ignores padding unless
-         * scroll-padding says otherwise -- so the browser scrolled the strip
-         * by exactly the padding and sat the first logo flush against the
-         * screen edge, out of line with everything above it.
+         * No negative margin: the strip sits inside the content box, flush
+         * with the cards above it. Bleeding to the screen edge hinted that
+         * it scrolls, but it also made the board the one element on the
+         * page that ignored the page's own margins.
          *
-         * The negative margin is reset from sm up: bleeding to the edge
-         * signals "this scrolls" on a phone, but inside a centred max-width
-         * container on a desktop it just hangs out of alignment.
+         * Nothing to scroll-pad either, now that there is no padding for
+         * snap-start to scroll past.
          */
-        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 scroll-pl-4 [scrollbar-width:none] sm:mx-0 sm:scroll-pl-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
+        className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {sponsors.map((sponsor) => (
           <li key={sponsor.id} className="flex-none snap-start">
