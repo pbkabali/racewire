@@ -107,7 +107,7 @@ registerRoute(
 )
 
 /*
- * Deliberately NOT skipWaiting()/clients.claim().
+ * Deliberately NOT skipWaiting() on install.
  *
  * Those two made a new worker seize an already-open page, and
  * cleanupOutdatedCaches() then deleted the precache that page was still
@@ -130,7 +130,18 @@ registerRoute(
  * still gets the newest board, which is what the previous behaviour was
  * reaching for — it simply no longer breaks the session already in progress
  * to do it.
+ *
+ * clients.claim() IS kept, and removing it alongside skipWaiting was a
+ * mistake. skipWaiting was the dangerous half -- it activated a new worker
+ * underneath a running page. claim only decides who controls a page once a
+ * worker has already activated, which now happens either when every old
+ * client is gone or when somebody taps Reload. Safe in both.
+ *
+ * Without it a first visit stays uncontrolled, so nothing is served from
+ * cache until a second load -- and controllerchange never fires for that
+ * page, which is what left the Reload button apparently doing nothing.
  */
+self.addEventListener('activate', () => self.clients.claim())
 
 const messaging = getMessaging(initializeApp(firebaseConfig))
 
