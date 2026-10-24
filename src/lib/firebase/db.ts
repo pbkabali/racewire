@@ -44,6 +44,8 @@ export const collections = {
   events: 'events',
   /** Global, not per-event: a push token belongs to a device, not an event. */
   subscribers: 'subscribers',
+  /** Sponsors of the app itself, shown on every event and the picker. */
+  sponsors: 'sponsors',
 } as const
 
 /** Subcollections beneath `events/{code}`. */
@@ -58,6 +60,8 @@ export const eventCollections = {
   entries: 'entries',
   /** The rally programme, in the organiser's own order. */
   schedule: 'schedule',
+  /** Sponsors of this event, shown only within it. */
+  sponsors: 'sponsors',
   /** Extra notification recipients an organiser added: officials, media. */
   contacts: 'contacts',
   /** One row per recipient per channel per send. Written by Cloud Functions. */

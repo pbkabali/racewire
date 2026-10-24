@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 
+import { SponsorStrip } from '../sponsors/SponsorStrip'
+import { useAppSponsors, useEventSponsors } from '../sponsors/useSponsors'
 import { formatEventDates } from './types'
 import { useEvent } from './useEvent'
 
@@ -52,6 +54,8 @@ const SECTIONS = [
  */
 export function EventHomePage() {
   const event = useEvent()
+  const eventSponsors = useEventSponsors(event.code)
+  const appSponsors = useAppSponsors()
 
   return (
     <div className="space-y-4">
@@ -110,6 +114,11 @@ export function EventHomePage() {
           </Link>
         ))}
       </div>
+
+      {/* Below the cards: a sponsor board is something people look at on the
+          way past, not the reason they opened the app. */}
+      <SponsorStrip title="Event partners" sponsors={eventSponsors} />
+      <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
     </div>
   )
 }
