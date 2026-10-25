@@ -20,8 +20,13 @@ export function LivePage() {
   const appSponsors = useAppSponsors()
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold tracking-tight text-fg">Live</h1>
+    /* A column the height of the screen: heading and tracking take what
+       they need, the results card takes the rest, the boards sit under it.
+       Nothing here is position:fixed — the boards are simply last in a
+       full-height column, which keeps them clear of the nav without
+       anybody having to know how tall the nav is. */
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <h1 className="flex-none text-xl font-bold tracking-tight text-fg">Live</h1>
 
       {event.trackingUrl ? (
         <a
@@ -47,8 +52,8 @@ export function LivePage() {
         </p>
       )}
 
-      <section className="rounded-lg border border-edge bg-surface">
-        <header className="flex items-center gap-2 border-b border-edge p-3">
+      <section className="flex min-h-0 flex-1 flex-col rounded-lg border border-edge bg-surface">
+        <header className="flex flex-none items-center gap-2 border-b border-edge p-3">
           <h2 className="font-semibold text-fg">Live results</h2>
           {/* Permanent, not conditional on there being results: the label is
               the point of the card, and a badge that appears only sometimes
@@ -58,7 +63,9 @@ export function LivePage() {
           </span>
         </header>
 
-        <div className="p-6 text-center">
+        {/* Scrolls inside the card rather than moving the page, so the
+            boards below stay where they are once times start arriving. */}
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto p-6 text-center">
           <p className="text-sm text-fg-muted">
             Running times will appear here once the first stage is away.
           </p>

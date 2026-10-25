@@ -114,7 +114,11 @@ export function AppShell() {
       </header>
 
       {/* pb-20 clears the fixed mobile tab bar. */}
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-4 pb-20 sm:px-6 sm:pb-8">
+      {/* flex-col so a page can claim the full height and scroll inside itself
+          rather than growing the document. min-h-0 is what lets it shrink:
+          a flex item defaults to min-height:auto and would refuse to be
+          shorter than its content, so the inner scroller never scrolls. */}
+      <main className="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col px-4 pt-4 pb-20 sm:px-6 sm:pb-8">
         <InstallPrompt />
         <Outlet />
         {!onLive && <EventContact />}

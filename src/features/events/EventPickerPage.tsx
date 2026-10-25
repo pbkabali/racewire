@@ -22,8 +22,10 @@ export function EventPickerPage() {
   const groups = groupByStatus(events)
 
   return (
-    <div className="min-h-dvh bg-bg">
-      <header className="border-b border-edge bg-surface">
+    /* Exactly the viewport, not at least it: the list scrolls inside, so the
+       partner board can hold the foot of the screen the way it does on Live. */
+    <div className="flex h-dvh flex-col bg-bg">
+      <header className="flex-none border-b border-edge bg-surface">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
           <Brand />
           <div className="ml-auto">
@@ -32,7 +34,7 @@ export function EventPickerPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6">
+      <main className="mx-auto w-full max-w-3xl min-h-0 flex-1 overflow-y-auto px-4 py-6">
         <InstallPrompt />
         <h1 className="text-xl font-bold tracking-tight text-fg">Choose an event</h1>
         <p className="mt-1 text-sm text-fg-muted">
@@ -73,9 +75,15 @@ export function EventPickerPage() {
             </section>
           ),
         )}
-        {/* Only the app's own sponsors here: no event is chosen yet. */}
-        <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
       </main>
+
+      {/* Outside main, so the list scrolls past it rather than carrying it
+          along. Only the app's own sponsors: no event is chosen yet. */}
+      {appSponsors.length > 0 && (
+        <div className="mx-auto w-full max-w-3xl flex-none px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
+          <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
+        </div>
+      )}
     </div>
   )
 }
