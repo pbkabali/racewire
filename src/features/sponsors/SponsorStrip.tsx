@@ -58,8 +58,8 @@ export function SponsorStrip({ title, sponsors }: { title: string; sponsors: Spo
   if (sponsors.length === 0) return null
 
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-[10px] font-bold tracking-wide text-fg-subtle uppercase">
+    <section className="mt-4">
+      <h2 className="mb-1.5 text-[10px] font-bold tracking-wide text-fg-subtle uppercase">
         {title}
       </h2>
 
@@ -76,7 +76,7 @@ export function SponsorStrip({ title, sponsors }: { title: string; sponsors: Spo
          * Nothing to scroll-pad either, now that there is no padding for
          * snap-start to scroll past.
          */
-        className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {sponsors.map((sponsor) => (
           <li key={sponsor.id} className="flex-none snap-start">
@@ -94,11 +94,21 @@ function SponsorTile({ sponsor }: { sponsor: Sponsor }) {
       src={sponsor.logoUrl}
       alt={sponsor.name}
       loading="lazy"
-      className="h-12 w-auto max-w-36 object-contain"
+      className="h-10 w-auto max-w-32 object-contain"
     />
   )
 
-  const tile = 'flex h-16 min-w-28 items-center justify-center rounded-lg bg-white px-4'
+  /*
+   * Sized down from h-16/h-12 with a 36px gap between rows. Two boards were
+   * taking close to a quarter of a phone screen on the Live tab, which is
+   * more than a board earns on the screen people watch results on.
+   *
+   * The logo only came down a step. These are text-heavy marks -- club
+   * crests and wordmarks rather than symbols -- and the first thing lost
+   * when they shrink is the word, which is the part the sponsor is paying
+   * for. The chrome around them gave up more than they did.
+   */
+  const tile = 'flex h-14 min-w-24 items-center justify-center rounded-lg bg-white px-3'
 
   return sponsor.linkUrl ? (
     <a href={sponsor.linkUrl} target="_blank" rel="noreferrer" className={tile}>
