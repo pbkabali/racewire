@@ -1,4 +1,6 @@
 import { useEvent } from '../events/useEvent'
+import { SponsorStrip } from '../sponsors/SponsorStrip'
+import { useAppSponsors, useEventSponsors } from '../sponsors/useSponsors'
 
 /**
  * Live tracking and running results.
@@ -14,28 +16,44 @@ import { useEvent } from '../events/useEvent'
  */
 export function LivePage() {
   const event = useEvent()
+  const eventSponsors = useEventSponsors(event.code)
+  const appSponsors = useAppSponsors()
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-bold tracking-tight text-fg">Live</h1>
+    /* A column the height of the screen: heading and tracking take what
+       they need, the results card takes the rest, the boards sit under it.
+       Nothing here is position:fixed — the boards are simply last in a
+       full-height column, which keeps them clear of the nav without
+       anybody having to know how tall the nav is. */
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <h1 className="flex-none text-xl font-bold tracking-tight text-fg">Live</h1>
 
       {event.trackingUrl ? (
         <a
           href={event.trackingUrl}
           target="_blank"
           rel="noreferrer"
-          className="block rounded-lg bg-accent px-4 py-4 text-center text-sm font-semibold text-accent-fg"
+          /* py-3 lands it at exactly 44px, which is the smallest tap target
+             iOS asks for. Smaller looked tidier and would have been a worse
+             button to hit in a moving service van. */
+          className="block rounded-lg bg-accent px-4 py-3 text-center text-sm font-semibold text-accent-fg"
         >
           Open live tracking
         </a>
       ) : (
-        <p className="rounded-lg border border-edge bg-surface p-4 text-center text-sm text-fg-muted">
+        /*
+         * A line, not a card. With no link there is nothing to press, and a
+         * full bordered box the size of a button spent a chunk of the screen
+         * saying that nothing is here yet — on the one tab where the screen
+         * is wanted for results. The card below already explains the wait.
+         */
+        <p className="text-center text-xs text-fg-subtle">
           Live tracking will be linked here once the event starts.
         </p>
       )}
 
-      <section className="rounded-lg border border-edge bg-surface">
-        <header className="flex items-center gap-2 border-b border-edge p-3">
+      <section className="flex min-h-0 flex-1 flex-col rounded-lg border border-edge bg-surface">
+        <header className="flex flex-none items-center gap-2 border-b border-edge p-3">
           <h2 className="font-semibold text-fg">Live results</h2>
           {/* Permanent, not conditional on there being results: the label is
               the point of the card, and a badge that appears only sometimes
@@ -45,7 +63,9 @@ export function LivePage() {
           </span>
         </header>
 
-        <div className="p-6 text-center">
+        {/* Scrolls inside the card rather than moving the page, so the
+            boards below stay where they are once times start arriving. */}
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto p-6 text-center">
           <p className="text-sm text-fg-muted">
             Running times will appear here once the first stage is away.
           </p>
@@ -56,6 +76,18 @@ export function LivePage() {
           </p>
         </div>
       </section>
+
+      {/* Always here, not only when there is something to show above them.
+          Live is the screen people sit on during a rally, so it is the one
+          where a board is actually seen. */}
+      {/* flex-none so a short viewport squeezes the results card rather
+          than the boards: a flex item may shrink below its content, and a
+          squashed logo is worse than a shorter list. space-y-2 because the
+          strip no longer carries a margin of its own. */}
+      <div className="flex-none space-y-2">
+        <SponsorStrip title="Event partners" sponsors={eventSponsors} />
+        <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
+      </div>
     </div>
   )
 }

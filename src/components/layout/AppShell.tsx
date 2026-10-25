@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet, useMatch } from 'react-router-dom'
 
 import { useAuth } from '../../app/providers/useAuth'
 import { EventContact } from '../../features/events/EventContact'
@@ -12,7 +12,19 @@ import { OfflineBanner } from '../OfflineBanner'
 import { ThemeToggle } from '../ThemeToggle'
 
 const navItems = [
-  // The event index is the card home; tapping the event name goes there.
+  /*
+   * Home earns a slot of its own.
+   *
+   * The event name in the header has always linked here, but it reads as a
+   * title rather than a control, so in practice the card home was reachable
+   * only by guessing. That did not matter while every card merely duplicated
+   * a tab — it started mattering the moment the route map lived there and
+   * nowhere else, leaving it unreachable from any other screen.
+   *
+   * `end` because '.' resolves to the event root, which every other tab is
+   * nested under: without it, Home would light up on all of them.
+   */
+  { to: '.', label: 'Home', end: true },
   { to: 'notices', label: 'Notices', end: false },
   { to: 'schedule', label: 'Schedule', end: false },
   { to: 'docs', label: 'Docs', end: false },
@@ -28,6 +40,13 @@ export function AppShell() {
   const event = useEvent()
   const { scope } = useAuth()
   const canManage = canManageEvent(scope, event.code)
+
+  /*
+   * The organiser's contact details live in the layout, so every tab gets
+   * them. Live is the exception: it ends in sponsor boards, and a contact
+   * block under those reads as part of the last one.
+   */
+  const onLive = useMatch('/e/:code/live') !== null
 
   return (
     <div className="flex min-h-dvh flex-col overscroll-none-y">
@@ -95,20 +114,24 @@ export function AppShell() {
       </header>
 
       {/* pb-20 clears the fixed mobile tab bar. */}
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-4 pb-20 sm:px-6 sm:pb-8">
+      {/* flex-col so a page can claim the full height and scroll inside itself
+          rather than growing the document. min-h-0 is what lets it shrink:
+          a flex item defaults to min-height:auto and would refuse to be
+          shorter than its content, so the inner scroller never scrolls. */}
+      <main className="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col px-4 pt-4 pb-20 sm:px-6 sm:pb-8">
         <InstallPrompt />
         <Outlet />
-        <EventContact />
+        {!onLive && <EventContact />}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-edge bg-surface pb-[env(safe-area-inset-bottom)] sm:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-edge bg-surface pb-[env(safe-area-inset-bottom)] sm:hidden">
         {navItems.map((item) => (
           <NavLink
             key={item.label}
             to={item.to}
             end={item.end}
             className={({ isActive }) =>
-              `py-3 text-center text-[11px] font-semibold tracking-wide uppercase transition-colors ${
+              `px-0.5 py-3 text-center text-[10px] font-semibold tracking-tight uppercase transition-colors ${
                 isActive ? 'text-accent-text' : 'text-fg-subtle'
               }`
             }

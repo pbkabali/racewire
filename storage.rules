@@ -43,10 +43,20 @@ service firebase.storage {
      */
     match /events/{eventId}/{folder}/{fileName} {
       allow read: if folder != 'entries';
-      allow write: if manages(eventId)
+
+      /*
+       * Split for the reason the entries block below spells out: `write`
+       * includes delete, and on a delete request.resource is null, so
+       * isAllowedType() throws and the delete is refused -- for admins too.
+       * Replacing an event logo or removing a document left the old object
+       * in the bucket, unreferenced and unreachable.
+       */
+      allow create, update: if manages(eventId)
         && folder != 'entries'
         && isAllowedType()
         && withinSizeLimit();
+
+      allow delete: if manages(eventId) && folder != 'entries';
     }
 
     /*
@@ -69,6 +79,25 @@ service firebase.storage {
         && withinSizeLimit();
 
       allow delete: if manages(eventId);
+    }
+
+    /*
+     * App sponsor logos. Outside events/ because the sponsor is not tied to
+     * one, so the event-scoped rule above cannot cover them. Public to read
+     * like every other logo; only a super admin may put one here.
+     */
+    match /sponsors/{fileName} {
+      allow read: if true;
+
+      /*
+       * create and update, not write -- the same split the entries block
+       * makes, for the same reason. `write` also covers delete, and on a
+       * delete request.resource is null, so isAllowedType() fails and the
+       * delete is refused. Replacing a sponsor's logo would leave the old
+       * file behind forever.
+       */
+      allow create, update: if isSuperAdmin() && isAllowedType() && withinSizeLimit();
+      allow delete: if isSuperAdmin();
     }
 
     // Notice attachments, written before an event scoping existed on this path.

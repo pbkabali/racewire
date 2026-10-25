@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 
 import { useAuth } from '../../app/providers/useAuth'
 import { signOut } from '../../lib/firebase/auth'
-import { collections, db } from '../../lib/firebase/db'
+import { collections, db, eventCollections, eventPath } from '../../lib/firebase/db'
 import { AdminDocumentsPanel } from '../documents/AdminDocumentsPanel'
 import { formatEventDates, type Event } from '../events/types'
 import { EventSharePanel } from './EventSharePanel'
@@ -12,6 +12,7 @@ import { AdminNoticesPanel } from './AdminNoticesPanel'
 import { AdminAuditPanel } from './AdminAuditPanel'
 import { AdminNotificationsPanel } from './AdminNotificationsPanel'
 import { AdminSchedulePanel } from './AdminSchedulePanel'
+import { AdminSponsorsPanel } from './AdminSponsorsPanel'
 import { AdminEntriesPanel } from '../forms/AdminEntriesPanel'
 import { AdminLicencesPanel } from '../forms/AdminLicencesPanel'
 import { EventEditor } from './EventEditor'
@@ -23,6 +24,7 @@ const TABS = [
   'entries',
   'licences',
   'notify',
+  'sponsors',
   'share',
   'settings',
   // Super admins only: the rules refuse the read to anybody else, so showing
@@ -112,6 +114,14 @@ export function AdminEventDashboard() {
       {tab === 'entries' && <AdminEntriesPanel eventCode={eventCode} />}
       {tab === 'licences' && <AdminLicencesPanel eventCode={eventCode} />}
       {tab === 'notify' && <AdminNotificationsPanel eventCode={eventCode} />}
+      {tab === 'sponsors' && (
+        <AdminSponsorsPanel
+          path={eventPath(eventCode, eventCollections.sponsors)}
+          uploadFolder={`events/${eventCode}/sponsors`}
+          title="Event partners"
+          description="Shown on this event's home screen, above the Racewire partners."
+        />
+      )}
       {tab === 'audit' && scope.superAdmin && <AdminAuditPanel eventCode={eventCode} />}
       {tab === 'share' &&
         (event ? (
