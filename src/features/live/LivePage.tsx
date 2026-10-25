@@ -28,12 +28,21 @@ export function LivePage() {
           href={event.trackingUrl}
           target="_blank"
           rel="noreferrer"
-          className="block rounded-lg bg-accent px-4 py-4 text-center text-sm font-semibold text-accent-fg"
+          /* py-3 lands it at exactly 44px, which is the smallest tap target
+             iOS asks for. Smaller looked tidier and would have been a worse
+             button to hit in a moving service van. */
+          className="block rounded-lg bg-accent px-4 py-3 text-center text-sm font-semibold text-accent-fg"
         >
           Open live tracking
         </a>
       ) : (
-        <p className="rounded-lg border border-edge bg-surface p-4 text-center text-sm text-fg-muted">
+        /*
+         * A line, not a card. With no link there is nothing to press, and a
+         * full bordered box the size of a button spent a chunk of the screen
+         * saying that nothing is here yet — on the one tab where the screen
+         * is wanted for results. The card below already explains the wait.
+         */
+        <p className="text-center text-xs text-fg-subtle">
           Live tracking will be linked here once the event starts.
         </p>
       )}
