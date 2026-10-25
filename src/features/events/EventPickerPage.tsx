@@ -80,7 +80,7 @@ export function EventPickerPage() {
       {/* Outside main, so the list scrolls past it rather than carrying it
           along. Only the app's own sponsors: no event is chosen yet. */}
       {appSponsors.length > 0 && (
-        <div className="mx-auto w-full max-w-3xl flex-none px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
+        <div className="mx-auto w-full max-w-3xl flex-none px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]">
           <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
         </div>
       )}
