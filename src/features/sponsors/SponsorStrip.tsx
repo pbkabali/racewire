@@ -58,7 +58,11 @@ export function SponsorStrip({ title, sponsors }: { title: string; sponsors: Spo
   if (sponsors.length === 0) return null
 
   return (
-    <section className="mt-4">
+    /* No top margin of its own. Carrying one meant the gap above a board
+       was its margin PLUS whatever the container already spaced its
+       children by — 32px above the first board and 18 between the two,
+       neither of which anybody chose. The container owns it now. */
+    <section>
       <h2 className="mb-1.5 text-[10px] font-bold tracking-wide text-fg-subtle uppercase">
         {title}
       </h2>

@@ -117,8 +117,10 @@ export function EventHomePage() {
 
       {/* Below the cards: a sponsor board is something people look at on the
           way past, not the reason they opened the app. */}
-      <SponsorStrip title="Event partners" sponsors={eventSponsors} />
-      <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
+      <div className="space-y-2">
+        <SponsorStrip title="Event partners" sponsors={eventSponsors} />
+        <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
+      </div>
     </div>
   )
 }

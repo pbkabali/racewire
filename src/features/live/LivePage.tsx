@@ -80,8 +80,14 @@ export function LivePage() {
       {/* Always here, not only when there is something to show above them.
           Live is the screen people sit on during a rally, so it is the one
           where a board is actually seen. */}
-      <SponsorStrip title="Event partners" sponsors={eventSponsors} />
-      <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
+      {/* flex-none so a short viewport squeezes the results card rather
+          than the boards: a flex item may shrink below its content, and a
+          squashed logo is worse than a shorter list. space-y-2 because the
+          strip no longer carries a margin of its own. */}
+      <div className="flex-none space-y-2">
+        <SponsorStrip title="Event partners" sponsors={eventSponsors} />
+        <SponsorStrip title="Racewire partners" sponsors={appSponsors} />
+      </div>
     </div>
   )
 }
