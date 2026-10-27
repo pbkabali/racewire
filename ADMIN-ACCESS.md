@@ -17,6 +17,28 @@ read, and nobody can edit their own.
 Per-event is the default on purpose: an organiser with access to one rally
 should not be able to post to another by accident.
 
+## Creating the account and its password
+
+Granting a claim does not create anybody. The account and its password come
+first, and there is no self-serve path for either: the app signs in with
+email and password and offers nothing else — no sign-up, no reset, no magic
+link. Somebody with console access has to do it.
+
+**A new admin:** Firebase console → Authentication → Users → **Add user**.
+Set an email and an initial password there, then send both to them. They sign
+in at `/admin/login` and are stuck with that password until somebody changes
+it for them.
+
+**A forgotten password:** Firebase console → Authentication → Users → the row's
+⋮ menu → **Reset password**. Firebase emails them a link.
+
+That email comes from Firebase itself, not from the app's email provider, so
+it still works while SendGrid is lapsed. It is one of the few things that
+does.
+
+Pick the right project. The console is per-project, and a password created in
+`racewire-stg` does not sign anybody in to `racewire-live`.
+
 ## Granting
 
 ```bash
@@ -75,6 +97,13 @@ the claim it writes satisfies neither `manages()` in the rules nor
 `canManageEvent()` in the client. Nothing calls it today, so it is harmless —
 but do not wire a UI to it without fixing it first. The script is the only
 working path.
+
+**Nobody can set or reset their own password.** Sign-in is email and password
+with no reset link, so every forgotten password is a trip to the Firebase
+console by somebody who has access to it — on a rally weekend, possibly at
+night, possibly by the one person who is driving. A `sendPasswordResetEmail`
+call behind a "Forgot password?" link on the login screen would close this,
+and would work today: Firebase sends that email, not the lapsed provider.
 
 **Grants are not audited.** The audit log under each event records what admins
 did, not how they became one, and Firebase keeps no history of claim changes.
