@@ -166,19 +166,19 @@ index in `firestore.indexes.json` must be deployed or the board returns an error
 
 ### Admin access
 
-Claims are set out of band; the deployed `grantAdmin` callable needs a caller
-who is already an admin.
+Claims are set out of band, by `functions/scripts/grant-admin.mjs`. The full
+procedure — granting, revoking, the gotchas and what the errors mean — is in
+[ADMIN-ACCESS.md](ADMIN-ACCESS.md), kept there rather than here so there is
+one copy to keep correct.
 
 ```bash
 cd functions
-GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/racewire-stg-adminsdk.json \
-  node scripts/grant-admin.mjs you@example.com --super
-  # or --event KRC26 --event UGR26 for a single organiser
+GOOGLE_APPLICATION_CREDENTIALS=~/.secrets/<project>-adminsdk.json \
+  node scripts/grant-admin.mjs you@example.com --event UMC2026
 ```
 
-The key file alone decides which project is changed, so the script prints the
-project before acting. Claims only appear in a freshly minted ID token — sign
-out and back in.
+Two things that bite: the key file alone decides which project is changed, and
+claims only appear in a freshly minted ID token — sign out and back in.
 
 ### Messaging providers
 
