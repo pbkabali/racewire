@@ -35,7 +35,7 @@ export function ResultsTable({ results }: { results: LiveResults }) {
         <tbody className="divide-y divide-edge">
           {results.rows.map((row, rowIndex) => (
             <tr key={rowIndex} className="even:bg-surface-raised/40">
-              {row.map((cell, index) => (
+              {row.cells.map((cell, index) => (
                 <td
                   key={index}
                   className={`px-2 py-1.5 whitespace-nowrap ${

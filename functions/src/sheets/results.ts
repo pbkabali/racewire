@@ -139,7 +139,15 @@ export async function syncEventResults(eventId: string): Promise<number> {
     .doc('current')
     .set({
       header: table?.header ?? [],
-      rows: table?.rows ?? [],
+      /*
+       * Each row goes in wrapped in a map, not as a bare array. Firestore
+       * rejects an array whose elements are themselves arrays -- a table is
+       * exactly that shape, so writing it directly fails with
+       * INVALID_ARGUMENT and no results ever reach the app. An array of maps
+       * is allowed, and a map holding an array is allowed, so one level of
+       * wrapping is all it takes.
+       */
+      rows: (table?.rows ?? []).map((cells) => ({ cells })),
       fetchedAt: FieldValue.serverTimestamp(),
       // Kept so a wrong-looking table can be traced to the range it came from
       // without guessing which tab somebody pointed it at.
