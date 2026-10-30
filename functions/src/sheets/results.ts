@@ -67,10 +67,21 @@ export async function fetchResultsTable(
         .then((c) => c.client_email ?? '')
         .catch(() => '')
 
+      /*
+       * A disabled API and an unshared sheet both arrive as 403, and the
+       * advice for them is completely different. Leading with "share the
+       * sheet" when the API is switched off sends the organiser to the
+       * sharing dialog, where everything already looks correct.
+       */
+      const disabled = body.includes('SERVICE_DISABLED')
+
       throw new Error(
         `Sheets API ${response.status}. ` +
-          (who ? `Share the sheet with ${who} (Viewer). ` : '') +
-          `Check the spreadsheet id and that the tab in the range exists. ${body}`,
+          (disabled
+            ? 'Enable the Google Sheets API on this project, then retry. '
+            : (who ? `Share the sheet with ${who} (Viewer). ` : '') +
+              'Check the spreadsheet id and that the tab in the range exists. ') +
+          body,
       )
     }
 

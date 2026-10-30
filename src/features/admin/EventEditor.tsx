@@ -383,7 +383,7 @@ export function EventEditor({
         </legend>
         <p className="text-xs text-fg-subtle">
           Mirrors a range from your results spreadsheet onto the Live tab, refreshed
-          every two minutes. Whatever columns the sheet has are the columns shown.
+          every 30 seconds. Whatever columns the sheet has are the columns shown.
           <br />
           <strong className="font-semibold">Share the sheet first</strong> — Viewer
           access for the project's service account. The sheet stays private; it is not
