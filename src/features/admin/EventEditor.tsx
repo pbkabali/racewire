@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react'
 
 import { collections, db } from '../../lib/firebase/db'
 import { deleteAttachment, uploadAttachment } from '../../lib/firebase/storage'
+import { extractSheetId } from '../events/sheetId'
 import {
   EVENT_STATUSES,
   SPORT_TYPES,
@@ -119,7 +120,7 @@ export function EventEditor({
         contactPhone: contactPhone.trim(),
         mapUrl: mapUrl.trim(),
         trackingUrl: trackingUrl.trim(),
-        resultsSheetId: resultsSheetId.trim(),
+        resultsSheetId: extractSheetId(resultsSheetId),
         resultsSheetRange: resultsSheetRange.trim(),
         logoUrl,
         logoPath,
@@ -396,7 +397,10 @@ export function EventEditor({
           <input
             value={resultsSheetId}
             onChange={(e) => setResultsSheetId(e.target.value)}
-            placeholder="1AbC… (the long id in the sheet's URL)"
+            /* Normalised on blur rather than quietly at save, so a pasted
+               URL visibly becomes the id and nobody wonders what was stored. */
+            onBlur={(e) => setResultsSheetId(extractSheetId(e.target.value))}
+            placeholder="Paste the sheet URL, or just its id"
             className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 font-mono text-xs text-fg placeholder:text-fg-subtle"
           />
         </label>
