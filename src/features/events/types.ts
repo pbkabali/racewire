@@ -60,6 +60,16 @@ export type Event = {
   mapUrl?: string
   /** External live tracking, opened in its own tab. */
   trackingUrl?: string
+  /**
+   * Google Sheet the live results are mirrored from.
+   *
+   * The id out of the sheet's URL, plus a range naming the tab -- the sheet
+   * must be shared with the functions' service account, which is what keeps
+   * it private rather than published to the web.
+   */
+  resultsSheetId?: string
+  /** e.g. `Overall!A1:H80`. The tab name is the part that matters. */
+  resultsSheetRange?: string
   /** Storage download URL. Empty string when no logo has been uploaded. */
   logoUrl: string
   /** Storage path, kept so the logo can be replaced or deleted later. */

@@ -1,4 +1,11 @@
+import { useState } from 'react'
+
+import { useAuth } from '../../app/providers/useAuth'
+import { canManageEvent } from '../../lib/firebase/auth'
+import { refreshLiveResults } from '../../lib/firebase/functions'
 import { useEvent } from '../events/useEvent'
+import { ResultsTable } from './ResultsTable'
+import { useLiveResults } from './useLiveResults'
 import { SponsorStrip } from '../sponsors/SponsorStrip'
 import { useAppSponsors, useEventSponsors } from '../sponsors/useSponsors'
 
@@ -16,6 +23,10 @@ import { useAppSponsors, useEventSponsors } from '../sponsors/useSponsors'
  */
 export function LivePage() {
   const event = useEvent()
+  const { scope } = useAuth()
+  const { results } = useLiveResults(event.code)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const eventSponsors = useEventSponsors(event.code)
   const appSponsors = useAppSponsors()
 
@@ -65,16 +76,53 @@ export function LivePage() {
 
         {/* Scrolls inside the card rather than moving the page, so the
             boards below stay where they are once times start arriving. */}
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto p-6 text-center">
-          <p className="text-sm text-fg-muted">
-            Running times will appear here once the first stage is away.
+        {results && results.rows.length > 0 ? (
+          <ResultsTable results={results} />
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto p-6 text-center">
+            <p className="text-sm text-fg-muted">
+              Running times will appear here once the first stage is away.
+            </p>
+            <p className="mx-auto mt-2 max-w-sm text-xs text-fg-subtle">
+              Unofficial and subject to penalties, protests and corrections. Provisional
+              and final classifications are published as documents and are the only
+              results that count.
+            </p>
+          </div>
+        )}
+
+        {/* Under the table, not over it: once there are results the caveat
+            matters more than ever, and the badge above carries it anyway. */}
+        <footer className="flex flex-none items-center gap-2 border-t border-edge px-3 py-1.5">
+          <p className="min-w-0 flex-1 truncate text-[10px] text-fg-subtle">
+            {results?.fetchedAt
+              ? `Updated ${results.fetchedAt.toDate().toLocaleTimeString()} · unofficial`
+              : 'Unofficial'}
           </p>
-          <p className="mx-auto mt-2 max-w-sm text-xs text-fg-subtle">
-            Unofficial and subject to penalties, protests and corrections. Provisional and
-            final classifications are published as documents and are the only results that
-            count.
+
+          {canManageEvent(scope, event.code) && (
+            <button
+              type="button"
+              onClick={() => {
+                setRefreshing(true)
+                setError(null)
+                refreshLiveResults({ eventId: event.code })
+                  .catch((cause: Error) => setError(cause.message))
+                  .finally(() => setRefreshing(false))
+              }}
+              disabled={refreshing}
+              className="flex-none rounded border border-edge px-2 py-0.5 text-[10px] font-semibold text-fg disabled:opacity-60"
+            >
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          )}
+        </footer>
+
+        {error && (
+          <p className="flex-none border-t border-edge px-3 py-2 text-[10px] text-danger-text">
+            {error}
           </p>
-        </div>
+        )}
       </section>
 
       {/* Always here, not only when there is something to show above them.

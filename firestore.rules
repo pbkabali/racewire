@@ -58,6 +58,17 @@ service cloud.firestore {
         allow write: if manages(eventId);
       }
 
+      /*
+       * Live results mirrored from the organiser's sheet. Public to read --
+       * it is the thing everybody is waiting for -- and written only by the
+       * sync, which bypasses rules. No client write, so nothing can put a
+       * classification on the board except the sheet it came from.
+       */
+      match /liveResults/{docId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
       // This event's sponsor board. Public, like the logos on the cars.
       match /sponsors/{sponsorId} {
         allow read: if true;

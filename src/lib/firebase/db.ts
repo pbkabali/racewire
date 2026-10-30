@@ -62,6 +62,8 @@ export const eventCollections = {
   schedule: 'schedule',
   /** Sponsors of this event, shown only within it. */
   sponsors: 'sponsors',
+  /** Standings mirrored from the organiser's sheet. Written by Cloud Functions. */
+  liveResults: 'liveResults',
   /** Extra notification recipients an organiser added: officials, media. */
   contacts: 'contacts',
   /** One row per recipient per channel per send. Written by Cloud Functions. */
