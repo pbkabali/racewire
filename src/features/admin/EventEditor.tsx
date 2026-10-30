@@ -52,6 +52,8 @@ export function EventEditor({
   const [contactPhone, setContactPhone] = useState(event?.contactPhone ?? '')
   const [mapUrl, setMapUrl] = useState(event?.mapUrl ?? '')
   const [trackingUrl, setTrackingUrl] = useState(event?.trackingUrl ?? '')
+  const [resultsSheetId, setResultsSheetId] = useState(event?.resultsSheetId ?? '')
+  const [resultsSheetRange, setResultsSheetRange] = useState(event?.resultsSheetRange ?? '')
   const [logo, setLogo] = useState<File | null>(null)
 
   const [busy, setBusy] = useState(false)
@@ -117,6 +119,8 @@ export function EventEditor({
         contactPhone: contactPhone.trim(),
         mapUrl: mapUrl.trim(),
         trackingUrl: trackingUrl.trim(),
+        resultsSheetId: resultsSheetId.trim(),
+        resultsSheetRange: resultsSheetRange.trim(),
         logoUrl,
         logoPath,
         // Local midnight, so the date shown matches the date typed.
@@ -368,6 +372,44 @@ export function EventEditor({
             onChange={(e) => setTrackingUrl(e.target.value)}
             placeholder="https://tracking.example.com/umc2026"
             className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 text-fg placeholder:text-fg-subtle"
+          />
+        </label>
+      </fieldset>
+
+      <fieldset className="space-y-3 rounded-lg border border-edge p-4">
+        <legend className="px-1 text-xs font-semibold tracking-wide text-fg-muted uppercase">
+          Live results sheet
+        </legend>
+        <p className="text-xs text-fg-subtle">
+          Mirrors a range from your results spreadsheet onto the Live tab, refreshed
+          every two minutes. Whatever columns the sheet has are the columns shown.
+          <br />
+          <strong className="font-semibold">Share the sheet first</strong> — Viewer
+          access for the project's service account. The sheet stays private; it is not
+          published to the web.
+        </p>
+
+        <label className="block">
+          <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+            Spreadsheet ID
+          </span>
+          <input
+            value={resultsSheetId}
+            onChange={(e) => setResultsSheetId(e.target.value)}
+            placeholder="1AbC… (the long id in the sheet's URL)"
+            className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 font-mono text-xs text-fg placeholder:text-fg-subtle"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+            Range
+          </span>
+          <input
+            value={resultsSheetRange}
+            onChange={(e) => setResultsSheetRange(e.target.value)}
+            placeholder="Overall!A1:H80"
+            className="mt-1 w-full rounded-md border border-edge bg-bg px-3 py-2 font-mono text-xs text-fg placeholder:text-fg-subtle"
           />
         </label>
       </fieldset>

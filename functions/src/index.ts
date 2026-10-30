@@ -21,6 +21,7 @@ import { describeError } from './errors.js'
 import { dispatchNotification } from './notify/dispatch.js'
 import { extractStatuses, isFromMeta } from './notify/metaWebhook.js'
 import { claimPending, fallbackToSms, findExpired, markDelivered } from './notify/outbox.js'
+import { syncAllEventResults, syncEventResults } from './sheets/results.js'
 import { syncRacesFromSheet } from './sheets/sync.js'
 
 initializeApp()
@@ -595,3 +596,50 @@ export const onEventChanged = onDocumentWrittenWithAuthContext(
     })
   },
 )
+
+/**
+ * Pull live results from each event's sheet.
+ *
+ * Every two minutes rather than the fifteen the race sync uses. Results are
+ * the one thing on the board people refresh for, and a quarter of an hour
+ * behind is indistinguishable from broken when a stage has just finished.
+ *
+ * Cheap enough to justify: one Sheets read per configured event, and events
+ * without a sheet cost a field check.
+ */
+export const syncLiveResults = onSchedule('every 2 minutes', async () => {
+  await syncAllEventResults()
+})
+
+/**
+ * Pull one event's results now.
+ *
+ * The schedule covers the rally; this covers the moment somebody has just
+ * recomputed a classification and does not want to wait two minutes to see
+ * whether it published correctly.
+ */
+export const refreshLiveResults = onCall(async (request) => {
+  const { eventId } = (request.data ?? {}) as { eventId?: string }
+  if (!eventId) throw new HttpsError('invalid-argument', 'eventId is required.')
+
+  const token = request.auth?.token
+  const manages =
+    token?.superAdmin === true ||
+    (Array.isArray(token?.events) && token.events.includes(eventId))
+  if (!manages) throw new HttpsError('permission-denied', 'Not an admin for this event.')
+
+  try {
+    const rows = await syncEventResults(eventId)
+    return { rows }
+  } catch (cause) {
+    /*
+     * Handed back rather than swallowed: the likely faults are a sheet that
+     * was never shared with the service account and a tab name that does not
+     * exist, and both are fixed in seconds by somebody who can see the error.
+     */
+    throw new HttpsError(
+      'unknown',
+      cause instanceof Error ? cause.message : 'Could not read that sheet',
+    )
+  }
+})
