@@ -140,9 +140,16 @@ export async function syncEventResults(eventId: string): Promise<number> {
   return count
 }
 
-/** Every event that has a results sheet configured. */
-export async function syncAllEventResults(): Promise<void> {
+/**
+ * Every event that has a results sheet configured.
+ *
+ * Returns how many were synced, so the caller can tell a rally weekend from
+ * an ordinary Tuesday and not burn a minute of function time waiting around
+ * when there is nothing to wait for.
+ */
+export async function syncAllEventResults(): Promise<number> {
   const events = await getFirestore().collection('events').get()
+  let synced = 0
 
   for (const event of events.docs) {
     const data = event.data()
@@ -150,6 +157,7 @@ export async function syncAllEventResults(): Promise<void> {
 
     try {
       await syncEventResults(event.id)
+      synced++
     } catch (cause) {
       /*
        * One event's sheet failing must not stop the others. A revoked share,
@@ -162,4 +170,6 @@ export async function syncAllEventResults(): Promise<void> {
       })
     }
   }
+
+  return synced
 }
