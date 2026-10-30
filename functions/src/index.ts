@@ -21,6 +21,7 @@ import { describeError } from './errors.js'
 import { dispatchNotification } from './notify/dispatch.js'
 import { extractStatuses, isFromMeta } from './notify/metaWebhook.js'
 import { claimPending, fallbackToSms, findExpired, markDelivered } from './notify/outbox.js'
+import { syncAllEventResults, syncEventResults } from './sheets/results.js'
 import { syncRacesFromSheet } from './sheets/sync.js'
 
 initializeApp()
@@ -595,3 +596,76 @@ export const onEventChanged = onDocumentWrittenWithAuthContext(
     })
   },
 )
+
+/**
+ * Pull live results from each event's sheet.
+ *
+ * Every two minutes rather than the fifteen the race sync uses. Results are
+ * the one thing on the board people refresh for, and a quarter of an hour
+ * behind is indistinguishable from broken when a stage has just finished.
+ *
+ * Cheap enough to justify: one Sheets read per configured event, and events
+ * without a sheet cost a field check.
+ */
+export const syncLiveResults = onSchedule(
+  // 120s because this run deliberately lasts about a minute; the default 60
+  // would kill it mid-second-pass.
+  { schedule: 'every 1 minutes', timeoutSeconds: 120 },
+  async () => {
+    const started = Date.now()
+    const synced = await syncAllEventResults()
+
+    /*
+     * Thirty seconds is what was wanted and a minute is the floor Cloud
+     * Scheduler offers, so the run syncs twice: once on the minute, once
+     * halfway through it.
+     *
+     * Only when there was something to sync. With no sheet configured the
+     * first pass returns immediately and so does this, which keeps a
+     * function that runs forever from costing a minute of compute every
+     * minute for the fifty weeks a year nobody is racing.
+     */
+    if (synced === 0) return
+
+    const elapsed = Date.now() - started
+    // A first pass slower than the half-minute has already eaten the gap;
+    // syncing again now would just run the two back to back.
+    if (elapsed >= 30_000) return
+
+    await new Promise((resolve) => setTimeout(resolve, 30_000 - elapsed))
+    await syncAllEventResults()
+  },
+)
+
+/**
+ * Pull one event's results now.
+ *
+ * The schedule covers the rally; this covers the moment somebody has just
+ * recomputed a classification and does not want to wait two minutes to see
+ * whether it published correctly.
+ */
+export const refreshLiveResults = onCall(async (request) => {
+  const { eventId } = (request.data ?? {}) as { eventId?: string }
+  if (!eventId) throw new HttpsError('invalid-argument', 'eventId is required.')
+
+  const token = request.auth?.token
+  const manages =
+    token?.superAdmin === true ||
+    (Array.isArray(token?.events) && token.events.includes(eventId))
+  if (!manages) throw new HttpsError('permission-denied', 'Not an admin for this event.')
+
+  try {
+    const rows = await syncEventResults(eventId)
+    return { rows }
+  } catch (cause) {
+    /*
+     * Handed back rather than swallowed: the likely faults are a sheet that
+     * was never shared with the service account and a tab name that does not
+     * exist, and both are fixed in seconds by somebody who can see the error.
+     */
+    throw new HttpsError(
+      'unknown',
+      cause instanceof Error ? cause.message : 'Could not read that sheet',
+    )
+  }
+})

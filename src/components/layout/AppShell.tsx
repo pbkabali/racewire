@@ -48,8 +48,26 @@ export function AppShell() {
    */
   const onLive = useMatch('/e/:code/live') !== null
 
+  /*
+   * Live is the one route that must not grow the document.
+   *
+   * min-h-dvh is a floor, not a ceiling: a long classification simply made
+   * the page taller, the whole thing scrolled, and the sponsor boards at the
+   * bottom of the column rode off the screen -- on the tab people sit on all
+   * rally, which is exactly where a board is meant to be seen. The inner
+   * `flex-1 min-h-0` scroller could never engage either, because nothing
+   * above it had a height to divide up.
+   *
+   * h-dvh pins the shell to the viewport so the results table has to scroll
+   * inside its own card. Every other tab keeps the document scroll it has
+   * always had, so nothing else changes.
+   */
   return (
-    <div className="flex min-h-dvh flex-col overscroll-none-y">
+    <div
+      className={`flex flex-col overscroll-none-y ${
+        onLive ? 'h-dvh overflow-hidden' : 'min-h-dvh'
+      }`}
+    >
       <OfflineBanner />
 
       <header className="border-b border-edge bg-surface">
@@ -118,7 +136,11 @@ export function AppShell() {
           rather than growing the document. min-h-0 is what lets it shrink:
           a flex item defaults to min-height:auto and would refuse to be
           shorter than its content, so the inner scroller never scrolls. */}
-      <main className="mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col px-4 pt-4 pb-20 sm:px-6 sm:pb-8">
+      <main
+        className={`mx-auto flex w-full max-w-5xl min-h-0 flex-1 flex-col px-4 pt-4 pb-20 sm:px-6 sm:pb-8 ${
+          onLive ? 'overflow-hidden' : ''
+        }`}
+      >
         <InstallPrompt />
         <Outlet />
         {!onLive && <EventContact />}

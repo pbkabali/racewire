@@ -37,3 +37,17 @@ export const regenerateEntryList = httpsCallable<
   functions,
   'regenerateEntryList',
 )
+
+/**
+ * Pull one event's live results from its sheet now.
+ *
+ * The schedule runs every two minutes; this is for the moment somebody has
+ * just recomputed a classification and wants to see whether it published.
+ * Errors come back with the Sheets message intact, because the two likely
+ * faults -- a sheet never shared with the service account, a tab name that
+ * does not exist -- are fixed in seconds by somebody who can read them.
+ */
+export const refreshLiveResults = httpsCallable<{ eventId: string }, { rows: number }>(
+  functions,
+  'refreshLiveResults',
+)
