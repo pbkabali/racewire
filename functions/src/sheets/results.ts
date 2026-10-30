@@ -99,8 +99,31 @@ export async function fetchResultsTable(
    */
   const table = values.map((row) => row.map((cell) => (cell == null ? '' : String(cell).trim())))
 
-  const [header = [], ...body] = table
-  const width = Math.max(header.length, ...body.map((r) => r.length), 0)
+  const [first = [], ...rest] = table
+  const width = Math.max(first.length, ...rest.map((r) => r.length), 0)
+
+  /*
+   * Absorb a second header row.
+   *
+   * A results sheet usually heads its time columns with a merged two-row
+   * title -- "Total Times" over "Pen" over "Diff. Lead". The API reports a
+   * merged cell's text only in its top-left corner, so the second row comes
+   * back blank under the labelled columns and filled under the rest, and
+   * taking just the first row left it to render as the leading competitor.
+   *
+   * The test is deliberately narrow: a continuation only ever fills columns
+   * the first row left empty. A real competitor has a position, and that
+   * column is always labelled, so a standings row can never match.
+   */
+  const second = rest[0] ?? []
+  const continuation =
+    second.some((cell) => cell !== '') &&
+    second.every((cell, i) => cell === '' || (first[i] ?? '') === '')
+
+  const header = continuation
+    ? Array.from({ length: width }, (_, i) => first[i] || second[i] || '')
+    : first
+  const body = continuation ? rest.slice(1) : rest
 
   const padded = body
     .map((row) => Array.from({ length: width }, (_, i) => row[i] ?? ''))
