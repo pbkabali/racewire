@@ -607,9 +607,35 @@ export const onEventChanged = onDocumentWrittenWithAuthContext(
  * Cheap enough to justify: one Sheets read per configured event, and events
  * without a sheet cost a field check.
  */
-export const syncLiveResults = onSchedule('every 2 minutes', async () => {
-  await syncAllEventResults()
-})
+export const syncLiveResults = onSchedule(
+  // 120s because this run deliberately lasts about a minute; the default 60
+  // would kill it mid-second-pass.
+  { schedule: 'every 1 minutes', timeoutSeconds: 120 },
+  async () => {
+    const started = Date.now()
+    const synced = await syncAllEventResults()
+
+    /*
+     * Thirty seconds is what was wanted and a minute is the floor Cloud
+     * Scheduler offers, so the run syncs twice: once on the minute, once
+     * halfway through it.
+     *
+     * Only when there was something to sync. With no sheet configured the
+     * first pass returns immediately and so does this, which keeps a
+     * function that runs forever from costing a minute of compute every
+     * minute for the fifty weeks a year nobody is racing.
+     */
+    if (synced === 0) return
+
+    const elapsed = Date.now() - started
+    // A first pass slower than the half-minute has already eaten the gap;
+    // syncing again now would just run the two back to back.
+    if (elapsed >= 30_000) return
+
+    await new Promise((resolve) => setTimeout(resolve, 30_000 - elapsed))
+    await syncAllEventResults()
+  },
+)
 
 /**
  * Pull one event's results now.
