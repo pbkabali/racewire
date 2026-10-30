@@ -5,7 +5,12 @@ import { db, eventCollections, eventPath } from '../../lib/firebase/db'
 
 export type LiveResults = {
   header: string[]
-  rows: string[][]
+  /*
+   * Rows arrive wrapped -- `{ cells }` rather than a bare array -- because
+   * Firestore will not store an array of arrays. The wrapping is a storage
+   * constraint, so it is unwrapped here and the table renders plain rows.
+   */
+  rows: { cells: string[] }[]
   fetchedAt: Timestamp | null
   sourceRange: string
 }
@@ -14,8 +19,8 @@ export type LiveResults = {
  * The standings, as last mirrored from the organiser's sheet.
  *
  * A live listener rather than a fetch: the sync rewrites one document every
- * couple of minutes, and a snapshot means the table on a phone in a service
- * park updates without anybody pulling to refresh.
+ * 30 seconds, and a snapshot means the table on a phone in a service park
+ * updates without anybody pulling to refresh.
  */
 export function useLiveResults(eventCode: string): {
   results: LiveResults | null
