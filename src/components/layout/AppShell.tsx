@@ -1,10 +1,11 @@
 import { Link, NavLink, Outlet, useMatch } from 'react-router-dom'
 
+import { useAuth } from '../../app/providers/useAuth'
 import { EventContact } from '../../features/events/EventContact'
 import { formatEventDates } from '../../features/events/types'
 import { useEvent } from '../../features/events/useEvent'
 import { NotificationCentre } from '../../features/notifications/NotificationCentre'
-import { AccountMenu } from '../AccountMenu'
+import { canManageEvent } from '../../lib/firebase/auth'
 import { Brand } from '../Brand'
 import { InstallPrompt } from '../InstallPrompt'
 import { OfflineBanner } from '../OfflineBanner'
@@ -37,6 +38,8 @@ const navItems = [
  */
 export function AppShell() {
   const event = useEvent()
+  const { scope } = useAuth()
+  const canManage = canManageEvent(scope, event.code)
 
   /*
    * The organiser's contact details live in the layout, so every tab gets
@@ -92,11 +95,14 @@ export function AppShell() {
             </span>
           </Link>
 
-          {/* Manage moved inside the account menu rather than sitting beside
-              it. Both appear only for a signed-in admin, so keeping two
-              controls here would have cost a 390px header a slot and said
-              the same thing twice. */}
-          <AccountMenu eventCode={event.code} />
+          {canManage && (
+            <Link
+              to={`/admin/e/${event.code}`}
+              className="flex-none rounded border border-edge px-2 py-1 text-xs font-semibold text-fg"
+            >
+              Manage
+            </Link>
+          )}
           <div className="flex-none">
             <ThemeToggle />
           </div>

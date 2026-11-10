@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { AccountMenu } from '../../components/AccountMenu'
 import { Brand } from '../../components/Brand'
 import { SponsorStrip } from '../sponsors/SponsorStrip'
 import { useAppSponsors } from '../sponsors/useSponsors'
@@ -29,12 +28,8 @@ export function EventPickerPage() {
       <header className="flex-none border-b border-edge bg-surface">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
           <Brand />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto">
             <ThemeToggle />
-            {/* The landing screen stranded a signed-in organiser just as the
-                event shell did: no way out, and nothing saying there was a
-                session to leave. */}
-            <AccountMenu />
           </div>
         </div>
       </header>
